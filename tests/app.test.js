@@ -5,12 +5,12 @@ const vm = require('node:vm');
 const path = require('node:path');
 const root = path.join(__dirname, '..');
 const source = file => fs.readFileSync(path.join(root, file), 'utf8');
-const scripts = ['products-data.js', 'core.js', 'checks.js', 'data.js', 'marks.js', 'screens/today.js', 'screens/stub.js', 'screens/make.js', 'screens/listings.js'];
+const scripts = ['products-data.js', 'icons.js', 'core.js', 'checks.js', 'data.js', 'marks.js', 'screens/today.js', 'screens/stub.js', 'screens/make.js', 'screens/listings.js'];
 function boot(storage = {}) {
   const listeners = {}, nodes = {};
   function node(id) { return nodes[id] || (nodes[id] = { id, dataset: {}, innerHTML: '', hidden: true, value: '', children: [], setAttribute(k,v) { this[k] = v; }, appendChild(n) { this.children.push(n); }, focus() { document.activeElement = this; }, showModal() { this.open = true; }, close() { this.open = false; }, addEventListener(k,fn) { this[k] = fn; } }); }
   const document = { activeElement: null, documentElement: node('html'), getElementById: node, querySelectorAll: () => [], querySelector: selector => node(selector), addEventListener(k,fn) { listeners[k] = fn; }, createElement: () => ({}) };
-  const window = { localStorage: { getItem: k => storage[k], setItem: (k,v) => { storage[k] = v; } }, location: { hash: '#/today' }, history: { replaceState: (_,__,hash) => { window.location.hash = hash; } }, addEventListener: (k,fn) => { listeners[k] = fn; } };
+  const window = { localStorage: { getItem: k => storage[k], setItem: (k,v) => { storage[k] = v; } }, location: { hash: '#/today' }, scrollTo(options) { window.lastScroll = options; window.scrollCalls = (window.scrollCalls || 0) + 1; }, history: { replaceState: (_,__,hash) => { window.location.hash = hash; } }, addEventListener: (k,fn) => { listeners[k] = fn; } };
   const context = vm.createContext({ window, document });
   scripts.forEach(file => vm.runInContext(source('assets/js/' + file), context));
   vm.runInContext(source('assets/js/shell.js'), context);
@@ -21,14 +21,15 @@ let app = boot(), { IdealData: D, IdealCore: C, IdealToday: T, IdealMarks: M } =
 assert.equal(D.products.length, 6);
 assert.deepEqual(JSON.parse(JSON.stringify(D.counts())), { total: 9, fix: 3, message: 2, offer: 1, shipment: 2, ended: 1 });
 assert.deepEqual(JSON.parse(JSON.stringify(D.badges())), { today: 9, listings: 3, messages: 2, orders: 2 });
-Object.entries(D.badges()).forEach(([route,count]) => assert.match(app.window.IdealShell.nav(), new RegExp('data-badge="' + route + '">[^<]*' + count + '（例）')));
+Object.entries(D.badges()).forEach(([route,count]) => assert.match(app.window.IdealShell.nav(), new RegExp('data-badge="' + route + '"[^>]*>' + count + '</span>')));
 D.groups.flatMap(g => g[1]).forEach(([route]) => {
   assert.equal(D.route('#/' + route), route);
   app.window.location.hash = '#/' + route;
   app.window.IdealShell.render();
   const html = app.nodes.main.innerHTML;
   assert.match(html, /本物との対応/); assert.match(html, /class="mark"/); assert.match(app.nodes.header.innerHTML, /data-action="legend"/);
-  assert.match(app.nodes.header.innerHTML, new RegExp(D.title(route)));
+  assert.match(html, new RegExp('<h1>' + D.title(route) + '</h1>'));
+  assert.equal((html.match(/<h1>/g) || []).length, 1);
   if (!['today', 'create', 'listings'].includes(route)) { assert.match(html, /この画面は次の段階で作ります/); assert.doesNotMatch(html, /data-task/); }
 });
 app.window.location.hash = '#/missing'; app.window.IdealShell.render(); assert.equal(app.window.location.hash, '#/today');

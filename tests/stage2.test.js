@@ -100,9 +100,9 @@ D.listings[0].cause = '<img src=x>'; route('listings'); assert.doesNotMatch(main
 D.drafts[1].description = '</p><script>bad</script>'; assert.match(screens.create.preview(D.drafts[1]), /&lt;script&gt;/);
 const css = fs.readFileSync('assets/css/app.css', 'utf8');
 assert.match(css, /@media \(max-width: 800px\)[\s\S]*\.listings-table[^}]+display: block/);
-assert.match(css, /\.listings-table thead \{ display: none/);
-assert.match(css, /\.row-select input \{ width: 44px; height: 44px/);
-assert.match(css, /\.final-bar \{ position: sticky; bottom: 72px/);
+assert.match(css, /\.listings-table thead\s*\{\s*display: none/);
+assert.match(css, /\.row-select input\s*\{\s*width: 44px;\s*height: 44px/);
+assert.match(css, /\.final-bar\s*\{\s*position: sticky;\s*bottom: 72px/);
 const copy = ['assets/js/checks.js', 'assets/js/screens/make.js', 'assets/js/screens/listings.js'].map(p => fs.readFileSync(p, 'utf8')).join('\n');
 const prohibited = /必ず稼げ|利益保証|収入保証|確実に儲|誰でも月収|guaranteed income|\b(?:Nike|Sony|Canon|Nikon|Rolex|Gucci)\b/i;
 assert.equal(prohibited.test(copy), false); assert.equal(prohibited.test('Sony'), true); assert.equal(prohibited.test('利益保証'), true);

@@ -46,3 +46,19 @@ find assets/js tests -name '*.js' -exec node --check {} \;
 ```
 
 Stage 2もブラウザ未使用。表示幅・ダークテーマ・フォーカス・モバイルの固定バー・読み上げ・実タップ・課題達成時間は実ブラウザと人による確認が必要です。
+
+### BRIEF4: real-app visual reskin
+
+The shell now uses a full-width eBase Autopilot brand header, a 240px sidebar
+with local SVG line icons, and the real warm-neutral light/dark sidebar,
+status and shadow tokens. All routes share a 44px page header; cards, tables,
+controls and typography use the compact 13/14/16px scale. Listing states map
+to the six real status styles, with the existing warning labels retained.
+Data and workflows remain session-local and unchanged.
+
+On narrow phones the full brand and concept chip occupy the first header row;
+search, notifications, help entry points and display settings occupy the second
+row to retain readable labels and 44px touch targets. Mode/theme/keyboard help
+remain available in Display. Browser screenshots, actual overflow at 360–1440px,
+and rendered contrast/focus behavior have not been verified in this pass.
+`tests/reskin.test.js` adds structural checks across all 15 routes and 3 modes.

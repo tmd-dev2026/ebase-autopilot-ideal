@@ -4,7 +4,21 @@
   var route, pending, returnFocus, supportScreen;
   var undoCallbacks = {}, undoSerial = 0;
   var dialog = document.getElementById('dialog');
-  function nav() { var badges = D.badges(); return D.groups.map(function (g) { return '<div class="nav-group">' + (g[0] ? '<h2>' + g[0] + '</h2>' : '') + g[1].map(function (r) { return '<a href="#/' + r[0] + '"' + (route === r[0] ? ' aria-current="page"' : '') + '>' + r[1] + (badges[r[0]] ? '<span class="badge" data-badge="' + r[0] + '">' + (r[0] === 'listings' ? '要修正 ' : r[0] === 'orders' ? '発送待ち ' : '') + badges[r[0]] + '（例）</span>' : '') + '</a>'; }).join('') + '</div>'; }).join(''); }
+  var icon = window.IdealIcons;
+  function nav() {
+    var badges = D.badges();
+    return D.groups.map(function (group) {
+      return '<div class="nav-group">' + (group[0] ? '<h2>' + group[0] + '</h2>' : '') +
+        group[1].map(function (entry) {
+          var id = entry[0];
+          var badgeLabel = (id === 'listings' ? '要修正 ' : id === 'orders' ? '発送待ち ' : id === 'messages' ? '未返信 ' : '要対応 ') + badges[id] + ' 件（例）';
+          return '<a href="#/' + id + '"' + (id === 'today' ? ' class="pinned"' : '') +
+            (route === id ? ' aria-current="page"' : '') + '>' + icon(id) +
+            '<span class="nav-label">' + entry[1] + '</span>' +
+            (badges[id] ? '<span class="badge" data-badge="' + id + '" aria-label="' + badgeLabel + '" title="' + badgeLabel + '">' + badges[id] + '</span>' : '') + '</a>';
+        }).join('') + '</div>';
+    }).join('');
+  }
   function open(content) { returnFocus = document.activeElement; dialog.innerHTML = '<div class="dialog-top"><span id="dialog-title">理想のオートパイロット・試作</span><button data-action="close" aria-label="閉じる">閉じる ×</button></div>' + content; dialog.showModal(); }
   function close() { dialog.close(); pending = null; if (returnFocus && returnFocus.isConnected) returnFocus.focus(); else { var display = document.querySelector('[data-action="display"]'); if (display && display.getClientRects && display.getClientRects().length) display.focus(); else document.getElementById('main').focus(); } }
   function toast(text, id) { var node = document.createElement('div'); node.className = 'toast'; node.innerHTML = '<span>' + e(text) + '</span>' + (id ? '<button data-action="undo" data-id="' + id + '">元に戻す</button>' : '') + '<button data-action="dismiss" aria-label="通知を閉じる">×</button>'; document.getElementById('toasts').appendChild(node); }
@@ -13,9 +27,32 @@
     undoCallbacks[id] = callback;
     toast(text, id);
   }
-  function preferences() {
+  function modeControl() {
+    return '<div class="segmented" role="group" aria-label="表示モード">' + C.modes.map(function (mode) {
+      return '<button data-action="mode" data-id="' + mode + '" aria-pressed="' + (C.mode === mode) + '">' + mode + '</button>';
+    }).join('') + '</div>';
+  }
+  function themeHelp() {
     var themes = { auto: '自動', light: 'ライト', dark: 'ダーク' };
-    return '<div class="segmented" role="group" aria-label="表示モード">' + C.modes.map(function (m) { return '<button data-action="mode" data-id="' + m + '" aria-pressed="' + (C.mode === m) + '">' + m + '</button>'; }).join('') + '</div><button class="icon-button" data-action="theme" aria-label="テーマ：' + themes[C.theme] + '。押すと切り替え" title="テーマ：' + themes[C.theme] + '"><span aria-hidden="true">' + ({ auto: '◐', light: '☀', dark: '☾' })[C.theme] + '</span></button><button class="icon-button" data-action="shortcuts" aria-label="キーボード操作">?</button>';
+    return '<button class="icon-button" data-action="theme" aria-label="テーマ：' + themes[C.theme] + '。押すと切り替え" title="テーマ：' + themes[C.theme] + '">' + icon('theme') +
+      '</button><button class="icon-button" data-action="shortcuts" aria-label="キーボード操作">' + icon('help') + '</button>';
+  }
+  function preferences() { return modeControl() + themeHelp(); }
+  function header() {
+    return '<div class="header-row">' +
+      '<button class="brand" data-action="home" aria-label="eBase Autopilot：今日へ">' + icon('sparkles') + '<span>eBase Autopilot</span></button>' +
+      '<button class="concept" data-action="legend">構想(未実装)</button>' +
+      '<button class="phone-brand" data-action="legend" aria-label="eBase Autopilot：構想(未実装)の凡例を開く">' + icon('sparkles') + '<span>eBase Autopilot<span class="concept-pill">構想(未実装)</span></span></button>' +
+      '<div class="header-actions">' +
+      '<button class="icon-button" data-action="search" aria-label="検索" aria-expanded="false" aria-controls="search-form">' + icon('sourcing') + '</button>' +
+      '<button class="icon-button bell" data-action="notifications" aria-expanded="false" aria-controls="notifications" aria-label="通知を開く：' + D.counts().total + '件（例）">' + icon('bell') + '<span class="notification-count" aria-hidden="true">' + D.counts().total + '</span></button>' +
+      '<div class="desktop-preferences">' + themeHelp() + '</div>' +
+      '<button class="support-button" data-action="support" aria-label="この画面で困った"><span class="phone-label" aria-hidden="true">' + icon('help') + '</span><span class="desktop-label">この画面で困った</span></button>' +
+      '<div class="desktop-preferences">' + modeControl() + '</div>' +
+      '<span class="demo-user">例: デモユーザー</span>' +
+      '<button class="display-button" data-action="display" aria-haspopup="dialog" aria-label="表示：モード・テーマ・キーボード操作">' + icon('criteria') + '</button></div></div>' +
+      '<form id="search-form" class="search-popover" hidden><label class="sr-only" for="search">検索</label><input id="search" type="search" placeholder="画面内を検索" aria-describedby="search-note"><button>検索</button><p id="search-note">試作のため検索は動きません</p></form>' +
+      '<div id="notifications" class="notifications" hidden></div>';
   }
   function render() {
     var focused = document.activeElement, action = focused && focused.dataset ? focused.dataset.action : '', actionId = focused && focused.dataset ? focused.dataset.id : '';
@@ -23,8 +60,8 @@
     if (!/^#\//.test(window.location.hash) || window.location.hash.split('/')[1] !== route) window.history.replaceState(null, '', '#/' + route);
     document.documentElement.setAttribute('data-theme', C.theme);
     document.title = D.title(route) + ' | 理想のオートパイロット（構想）';
-    document.getElementById('sidebar').innerHTML = '<p class="brand">理想のオートパイロット</p><p class="muted">作業の順に、ひとつずつ。</p><nav aria-label="作業順">' + nav() + '</nav>';
-    document.getElementById('header').innerHTML = '<div class="header-row"><h1 title="' + e(D.title(route)) + '">' + e(D.title(route)) + '</h1><button class="concept" data-action="legend">構想(未実装)</button><div class="header-actions"><button class="icon-button" data-action="search" aria-label="検索" aria-expanded="false" aria-controls="search-form"><svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><circle cx="10" cy="10" r="6" fill="none" stroke="currentColor" stroke-width="2"/><path d="m15 15 6 6" stroke="currentColor" stroke-width="2"/></svg></button><button class="icon-button bell" data-action="notifications" aria-expanded="false" aria-controls="notifications" aria-label="通知を開く：' + D.counts().total + '件（例）"><svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path d="M5 17h14l-2-3V9a5 5 0 0 0-10 0v5l-2 3m5 3h4" fill="none" stroke="currentColor" stroke-width="2"/></svg><span class="notification-count" aria-hidden="true">' + D.counts().total + '</span></button><button class="support-button" data-action="support" aria-label="この画面で困った"><span class="phone-label" aria-hidden="true">ⓘ 困った</span><span class="desktop-label">この画面で困った</span></button><div class="desktop-preferences">' + preferences() + '</div><button class="display-button" data-action="display" aria-haspopup="dialog">表示</button></div></div><form id="search-form" class="search-popover" hidden><label class="sr-only" for="search">検索</label><input id="search" type="search" placeholder="画面内を検索" aria-describedby="search-note"><button>検索</button><p id="search-note">試作のため検索は動きません</p></form><div id="notifications" class="notifications" hidden></div>';
+    document.getElementById('sidebar').innerHTML = '<nav aria-label="作業順">' + nav() + '</nav><p class="sidebar-note">試作・ダミーデータ</p>';
+    document.getElementById('header').innerHTML = header();
     var main = document.getElementById('main');
     main.onclick = main.oninput = main.onchange = main.onsubmit = main.onkeydown = null;
     document.getElementById('main').innerHTML = window.IdealScreens[route].render();
@@ -34,12 +71,24 @@
   }
   function finish(id, label) { if (D.resolve(id)) { render(); document.getElementById('main').focus(); toast(label + '（試作内のみ）', id); } }
   function confirm(item, label, text, apply) { pending = null; open('<h2>実行内容の確認</h2><p>' + e(text) + '</p><p>対象1件。実際の送信・連携は行いません。試作内では元に戻せます。</p><button data-action="confirm">確認して実行（試作）</button><button data-action="close">キャンセル</button>'); pending = function () { if (apply) apply(); finish(item.id, label); }; }
-  function jump() { render(); var id = window.location.hash.split('/')[2], target = id && document.getElementById('item-' + id); if (target) { target.open = true; target.querySelector('summary').focus(); } else document.getElementById('main').focus(); }
+  function jump() {
+    render();
+    document.getElementById('main').focus({ preventScroll: true });
+    window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
+    // Notification links still expand and focus their specific task.
+    var id = window.location.hash.split('/')[2];
+    var target = id && document.getElementById('item-' + id);
+    if (target) {
+      target.open = true;
+      target.querySelector('summary').focus();
+    }
+  }
   document.addEventListener('click', function (event) {
     if (event.target.closest('.skip')) { event.preventDefault(); document.getElementById('main').focus(); return; }
     var b = event.target.closest('[data-action]');
     if (!b) { if (event.target.closest('#dialog a')) close(); return; }
     var action = b.dataset.action, id = b.dataset.id, item = D.items.find(function (i) { return i.id === id; });
+    if (action === 'home') window.location.hash = '#/today';
     if (action === 'close') close();
     if (action === 'mode') { C.setMode(id); render(); if (dialog.open && dialog.querySelector && dialog.querySelector('.display-settings')) { dialog.querySelector('.display-settings').innerHTML = preferences(); dialog.querySelector('[data-id="' + id + '"]').focus(); } }
     if (action === 'display') open('<h2>表示</h2><div class="display-settings">' + preferences() + '</div>');

@@ -9,11 +9,11 @@
     ['判断軸と設定', [['criteria', '判断軸'], ['automation', '自動処理'], ['setup', 'eBay連携と初期設定']]]
   ];
   var categories = [
-    { id: 'fix', icon: '⚒', verb: '直す', label: '要修正の出品', explanation: '出品が止まった理由と、次に直す場所を確認します。' },
-    { id: 'message', icon: '✉', verb: '返信する', label: '未返信メッセージ', explanation: '購入者の原文と返信案を読み、確認してから送信します。' },
-    { id: 'offer', icon: '◇', verb: '判断する', label: '受信オファー', explanation: '購入者からの価格提案です。費用を引いた手残りで判断します。' },
-    { id: 'shipment', icon: '▣', verb: '発送登録', label: '発送待ち', explanation: '発送した荷物の追跡番号をここに一度だけ入力します。' },
-    { id: 'ended', icon: '⊘', verb: '取り下げる', label: '仕入れ元終了', explanation: '仕入れられなくなった商品の出品を終了します。' }
+    { id: 'fix', icon: 'wrench', verb: '直す', label: '要修正の出品', explanation: '出品が止まった理由と、次に直す場所を確認します。' },
+    { id: 'message', icon: 'mail', verb: '返信する', label: '未返信メッセージ', explanation: '購入者の原文と返信案を読み、確認してから送信します。' },
+    { id: 'offer', icon: 'offers', verb: '判断する', label: '受信オファー', explanation: '購入者からの価格提案です。費用を引いた手残りで判断します。' },
+    { id: 'shipment', icon: 'orders', verb: '発送登録', label: '発送待ち', explanation: '発送した荷物の追跡番号をここに一度だけ入力します。' },
+    { id: 'ended', icon: 'archive-x', verb: '取り下げる', label: '仕入れ元終了', explanation: '仕入れられなくなった商品の出品を終了します。' }
   ];
   var items = [
     { id: 'fix-card', category: 'fix', product: 'holo-card', cause: '状態の説明と選択した状態が違います', canFix: 'はい。説明に合わせて状態を確認できます', effect: '公開を停止しています', next: '状態を「美品・縁に使用感あり」に揃える' },

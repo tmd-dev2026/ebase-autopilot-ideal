@@ -5,6 +5,9 @@
   function save(key, value) { try { window.localStorage.setItem(key, value); } catch (_) {} }
   window.IdealScreens = {};
   window.IdealCore = {
+    pageHeader: function (title) {
+      return '<div class="page-header"><h1>' + this.escape(title) + '</h1></div>';
+    },
     modes: modes, themes: themes,
     mode: read('ideal-mode', 'ふだん', modes), theme: read('ideal-theme', 'auto', themes),
     setMode: function (value) { if (modes.includes(value)) { this.mode = value; save('ideal-mode', value); } },

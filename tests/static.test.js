@@ -4,8 +4,8 @@ const fs = require('node:fs');
 const path = require('node:path');
 const root = path.join(__dirname,'..');
 const read = p => fs.readFileSync(path.join(root,p),'utf8');
-const jsFiles = ['core.js','checks.js','data.js','marks.js','shell.js','screens/today.js','screens/stub.js','screens/make.js','screens/listings.js'];
-const html = read('index.html'), css = read('assets/css/app.css');
+const jsFiles = ['icons.js','core.js','checks.js','data.js','marks.js','shell.js','screens/today.js','screens/stub.js','screens/make.js','screens/listings.js'];
+const html = read('index.html'), css = read('assets/css/app.css').replace(/\s*([{}:;,])\s*/g, '$1');
 const sources = [html, css, read('assets/css/tokens.css'), read('assets/js/products-data.js'), ...jsFiles.map(p => read('assets/js/'+p))].join('\n');
 function network(s) { return /\b(?:fetch\s*\(|XMLHttpRequest|WebSocket|EventSource|sendBeacon\s*\(|importScripts\s*\()|https?:\/\/[^\s'"<]+|(?:src|href)\s*=\s*["'](?:https?:|\/\/)|url\(\s*["']?(?:https?:|\/\/)/i.test(s); }
 assert.equal(network(sources), false);
@@ -33,14 +33,14 @@ for (const match of html.matchAll(/(?:src|href)="([^"]+)"/g)) if (!match[1].star
 console.log('PASS static: offline policy with positive controls, robots, type sizes, accessibility hooks, contrast, copy and local assets');
 
 assert.match(css, /\.mark\{[^}]*font-size:12px[^}]*height:22px/);
-assert.match(css, /\.header-row\{[^}]*display:flex[^}]*height:47px[^}]*white-space:nowrap/);
+assert.match(css, /\.header-row\{[^}]*display:flex[^}]*min-height:40px[^}]*white-space:nowrap/);
 assert.doesNotMatch(css, /\.(?:heading|tools|preferences)\s*\{/);
 assert.match(css, /position:sticky;top:0;height:100vh;overflow-y:auto/);
 assert.match(css, /\.metric\.estimated\{border-style:dashed/);
 assert.match(css, /\.metric\.confirmed\{border-style:solid/);
-assert.match(css, /\.task img\{width:48px;height:48px/);
+assert.match(css, /\.task img\{width:40px;height:40px/);
 assert.match(css, /\.desktop-preferences,\.desktop-label\{display:none/);
-assert.equal((sources.match(/data-action="legend"/g) || []).length, 2); // Header badge and footer only.
+assert.equal((sources.match(/data-action="legend"/g) || []).length, 3); // Desktop badge, phone logo/legend area, and footer only.
 for (const block of tokenBlocks) {
   const colors=Object.fromEntries([...block[1].matchAll(/--([\w-]+):(#\w{6})/g)].map(m=>[m[1],m[2]]));
   for (const bg of ['primary','primary-hover']) assert.ok(ratio(colors['primary-foreground'],colors[bg])>=4.5);
