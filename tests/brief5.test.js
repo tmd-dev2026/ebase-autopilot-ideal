@@ -53,7 +53,11 @@ for (const id of ['buyer-preview', 'edit-content', 'listing-checks', 'final-bar'
 for (const mode of ['ふだん', '上級']) {
   w.IdealCore.setMode(mode);
   const today = w.IdealToday.render();
-  assert.doesNotMatch(today, /⚒|✉|◇|▣|⊘|undefined/);
+  // The future feature mark uses ◇; category icons must still use SVG.
+  const incomingChip = w.IdealMarks.component('incomingOffer');
+  assert.equal(today.split(incomingChip).length - 1, 1);
+  assert.match(incomingChip, /<span aria-hidden="true">◇<\/span> 将来/);
+  assert.doesNotMatch(today.replace(incomingChip, ''), /⚒|✉|◇|▣|⊘|undefined/);
   for (const cat of w.IdealData.categories) assert.ok(today.includes(w.IdealIcons(cat.icon)));
 }
 const css = fs.readFileSync('assets/css/app.css', 'utf8').replace(/\s*([{}:;,])\s*/g, '$1');

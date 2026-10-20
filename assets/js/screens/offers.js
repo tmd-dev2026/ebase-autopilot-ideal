@@ -12,7 +12,8 @@
   }
   function incoming() {
     var row = D.incomingOffer, value = A.takeHome(row.gross, row.shipping, row.cost), proposed = A.takeHome(counter, row.shipping, row.cost);
-    return '<section class="card' + (C.mode === 'はじめて' ? ' next-step' : '') + '">' + U.heading('受信オファー', '提示された価格から費用を引いた手残りを確認して判断します。') +
+    return '<section class="card' + (C.mode === 'はじめて' ? ' next-step' : '') + '">' + U.heading('受信オファー', '提示された価格から費用を引いた手残りを確認して判断します。', 'incomingOffer') +
+      '<p class="muted">この試作ではダミーで動きます。本物にするには eBay の新しい連携が必要です</p>' +
       U.product(row) + '<p>提示価格 ' + C.money(row.gross * 155) + ' · ' + U.profit(value && value.yen) + '</p>' +
       (row.done ? '<p>✓ ' + e(row.outcome) + '（例）</p>' :
         '<p>' + (!value ? '費用が不明なため受けられません' : value.yen < 0 ? '赤字になるため受けられません' : 'この価格で取引を進められます（例）') + '</p>' +

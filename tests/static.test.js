@@ -7,6 +7,17 @@ const read = p => fs.readFileSync(path.join(root,p),'utf8');
 const jsFiles = fs.readdirSync(path.join(root, 'assets/js'), { recursive: true }).filter(p => p.endsWith('.js'));
 const html = read('index.html'), css = read('assets/css/app.css').replace(/\s*([{}:;,])\s*/g, '$1');
 const sources = [html, css, read('assets/css/tokens.css'), read('assets/js/products-data.js'), ...jsFiles.map(p => read('assets/js/'+p))].join('\n');
+const marks = read('assets/js/marks.js');
+assert.match(marks, /incomingOffer: \['将来', '受信オファー\(購入者からのオファーの受信\)'\]/);
+assert.doesNotMatch(marks, /\['改', '受信オファー\(/);
+assert.match(marks, /inbox: \['改', '未返信メッセージを今日に出す'\]/);
+assert.doesNotMatch(marks, /未返信メッセージ・オファーを今日に出す/);
+assert.match(marks, /inlineOffer: \['改', '行の中でオファー'\]/);
+for (const screen of ['today', 'offers']) {
+  const source = read('assets/js/screens/' + screen + '.js');
+  assert.ok(source.includes('この試作ではダミーで動きます。本物にするには eBay の新しい連携が必要です'));
+  assert.ok(source.includes("'incomingOffer'"));
+}
 function network(s) { return /\b(?:fetch\s*\(|XMLHttpRequest|WebSocket|EventSource|sendBeacon\s*\(|importScripts\s*\()|https?:\/\/[^\s'"<]+|(?:src|href)\s*=\s*["'](?:https?:|\/\/)|url\(\s*["']?(?:https?:|\/\/)/i.test(s); }
 assert.equal(network(sources), false);
 for (const bad of ['fetch("x")', 'new XMLHttpRequest()', 'new WebSocket("x")', '<img src="https://cdn.invalid/x">', '@import "https://cdn.invalid"', 'url(//cdn.invalid/x)', 'navigator.sendBeacon("x")']) assert.equal(network(bad), true, bad);

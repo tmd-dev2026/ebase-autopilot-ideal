@@ -22,6 +22,25 @@ for (const mode of w.IdealCore.modes) {
     }
   }
   const offers = w.IdealScreens.offers.render();
+  const incomingChip = w.IdealMarks.component('incomingOffer');
+  assert.match(incomingChip, /title="将来：受信オファー/);
+  assert.doesNotMatch(incomingChip, /改/);
+  assert.ok(offers.includes('<h2>受信オファー ' + incomingChip + '</h2>'));
+  const today = w.IdealToday.render();
+  const note = '<p class="muted">この試作ではダミーで動きます。本物にするには eBay の新しい連携が必要です</p>';
+  for (const html of [today, offers]) {
+    assert.ok(html.includes(note));
+    assert.ok(html.includes(incomingChip));
+  }
+  if (mode !== '上級') {
+    const heading = [...today.matchAll(/<h2>.*?<\/h2>/g)].find(match => match[0].includes('受信オファー'));
+    assert.ok(heading && heading[0].includes(incomingChip));
+  }
+  for (const route of ['today', 'offers']) {
+    const mapping = w.IdealMarks.card(route);
+    assert.ok(mapping.includes('受信オファーは本物には受信の仕組みがなく、eBay の新しい連携が必要(将来)'));
+    assert.ok(mapping.includes('ウォッチャーからの送信は現行のオファー送信を使います'));
+  }
   for (const row of D.watchers) {
     const hasInput = offers.includes('data-discount="' + row.id + '"');
     assert.equal(hasInput, row.listing.state === '出品中');
