@@ -34,7 +34,7 @@ D.groups.flatMap(g => g[1]).forEach(([route]) => {
   assert.match(html, /本物との対応/); assert.match(html, /class="mark"/); assert.match(app.nodes.header.innerHTML, /data-action="legend"/);
   assert.match(html, new RegExp('<h1>' + D.title(route) + '</h1>'));
   assert.equal((html.match(/<h1>/g) || []).length, 1);
-  if (!['today', 'create', 'listings', 'orders', 'messages', 'returns', 'offers', 'ads', 'reports'].includes(route)) { assert.match(html, /この画面は次の段階で作ります/); assert.doesNotMatch(html, /data-task/); }
+  if (!['today', 'create', 'listings', 'orders', 'messages', 'returns', 'offers', 'ads', 'reports', 'criteria', 'automation', 'setup', 'sourcing', 'candidates', 'import'].includes(route)) { assert.match(html, /この画面は次の段階で作ります/); assert.doesNotMatch(html, /data-task/); }
 });
 app.window.location.hash = '#/missing'; app.window.IdealShell.render(); assert.equal(app.window.location.hash, '#/today');
 assert.equal(D.route('#/today/fix-card'), 'today');
@@ -72,7 +72,7 @@ app.click('decline','offer-figure'); app.click('confirm'); assert.equal(D.counts
 app.click('ended','ended-bag'); assert.match(app.nodes.dialog.innerHTML, /対象1件・eBay上の出品を終了します・再出品が必要/); assert.equal(D.counts().ended,1); app.click('confirm'); assert.equal(D.counts().ended,0); app.click('undo','ended-bag');
 app.listeners.submit({ preventDefault() {}, target: { dataset: { shipment:'ship-camera' }, elements: { tracking: { value: 'TRACK-EXAMPLE' } } } }); assert.equal(D.counts().shipment,2); assert.match(app.nodes.dialog.innerHTML, /取り消せません/); app.click('confirm'); assert.equal(D.counts().shipment,1); undoToast(app);
 app.listeners.submit({ preventDefault() {}, target: { dataset: { shipment:'ship-camera' }, elements: { tracking: { value: '   ' } } } }); assert.equal(D.counts().shipment,2);
-app.click('automation','stock'); assert.equal(D.automations[0].on,false); app.click('automation','stock'); assert.equal(D.automations[0].on,true);
+app.click('automation','stock'); assert.equal(D.automations[0].on,true); app.click('confirm'); assert.equal(D.automations[0].on,false); app.click('automation','stock'); assert.equal(D.automations[0].on,true);
 app.click('notifications'); assert.equal((app.nodes.notifications.innerHTML.match(/href=/g)||[]).length,3);
 app.click('support'); assert.match(app.nodes.dialog.innerHTML, /対象画面：今日/); app.listeners.submit({ preventDefault() {}, target: { id: 'support-form', dataset: {} } }); assert.match(app.nodes.toasts.children.at(-1).innerHTML, /今日.*送信されません/);
 app.click('mode','上級'); assert.match(app.nodes.main.innerHTML,/dense-list/); app.click('filter','offer'); assert.equal((app.nodes.main.innerHTML.match(/data-task=/g)||[]).length,1);
@@ -110,6 +110,7 @@ for (const cat of D.categories) {
 }
 for (const state of [false, true]) {
   app.click('automation', 'stock');
+  if (!state) { assert.equal(D.automations[0].on, true); app.click('confirm'); }
   assert.match(app.nodes.main.innerHTML, new RegExp('role="switch" aria-label="在庫監視" aria-checked="' + state + '"'));
   if (!state) assert.match(app.nodes.main.innerHTML, /class="stop-effect">停止の影響：仕入れ元の在庫変化/);
   else assert.doesNotMatch(app.nodes.main.innerHTML, /class="stop-effect"/);

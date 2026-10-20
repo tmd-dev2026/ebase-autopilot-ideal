@@ -45,7 +45,29 @@
   };
   var D = window.IdealData;
   D.decisions = [];
-  D.settings = { shipping: 'Tracked delivery', returns: 'Returns within 30 days', payment: 'Managed payments', duties: 'DDU' };
+  D.replySamples = { '丁寧': 'Thank you for your question. I would be happy to help.', 'フレンドリー': 'Hi! Thanks for asking. Happy to help!', '簡潔': 'Thanks. I will check and reply.' };
+  D.connection = { connected: true, expires: '2026-12-31（例）' };
+  D.automations.push({ id: 'ads-sync', name: '広告費同期', minutes: 6, result: '広告費の例を照合', basis: '広告費の記録を照合', impact: '広告費の表示が更新されなくなります', on: true });
+  D.automations.forEach(function (a) {
+    a.next = 10 - a.minutes;
+    a.history = [0, 1, 2, 3, 4].map(function (i) { return { time: (a.minutes + i * 10) + '分前（例）', result: a.result }; });
+  });
+  D.automationImpact = function (a) { return a.impact + '。いつでもONで再開できます。既に処理した出品・注文は元に戻りません（例）。'; };
+  D.setAutomation = function (id, on, confirmed) {
+    var a = D.automations.find(function (row) { return row.id === id; });
+    if (!a || (!on && !confirmed) || a.on === on) return null;
+    var before = a.on;
+    a.on = on;
+    return function () { a.on = before; };
+  };
+  D.connectionWarning = function () { return D.connection.connected ? '' : '<p class="notice">例：出品できません・在庫監視と注文同期が止まります・既に出ている出品はそのまま残ります <a href="#/setup">再連携の手順へ</a></p>'; };
+  D.setConnection = function (connected) { D.connection.connected = connected; D.steps[0][1] = connected; };
+  D.completeStep = function (index) {
+    if (!D.steps[index]) return;
+    D.steps[index][1] = true;
+    if (index === 0) D.setConnection(true);
+  };
+  D.settings = { marginFloor: 10, discountLimit: 30, tone: '丁寧', avoid: [{ type: 'category', value: '電池内蔵', reason: '配送条件の確認が必要' }, { type: 'condition', value: 'ジャンク', reason: '動作確認が難しい' }], shipping: 'Tracked delivery', returns: 'Returns within 30 days', payment: 'Managed payments', duties: 'DDU' };
   function draft(product, index) {
     return { id: 'draft-' + index, product: product.id, title: product.ai.titleEn,
       description: product.ai.descriptionEn.join('\n'), specifics: Object.fromEntries(product.ai.specifics),
@@ -58,11 +80,14 @@
   D.drafts[1].specifics.Type = '';
   D.drafts[1].confidence = 45;
   D.drafts[2].gross = 30;
+  D.drafts[1].condition = 'ジャンク';
+  D.drafts[1].brand = 'Example';
   var states = ['要修正', '要修正', '要修正', '仕入元終了', '出品中', '出品中', '予約済み', '要判断', '注意', 'eBay終了', '対象外', '出品中'];
   D.listings = states.map(function (state, index) {
     var product = D.products[index % 6], task = index < 3 ? items[index] : index === 3 ? items[8] : null;
     if (task) product = D.products.find(function (p) { return p.id === task.product; });
     return { id: 'listing-' + index, product: product.id, name: product.name + ' / 例 ' + (index + 1),
+      category: index === 0 ? '電池内蔵' : product.ai.category, condition: product.condition, brand: product.ai.specifics[0][1], originalGross: product.sale + 80,
       state: state, taskId: task && task.id, gross: product.sale + 80, shipping: 2000, cost: product.cost,
       date: '2026-10-' + String(10 + index % 9), stock: state === '仕入元終了' ? '終了を検知' : '監視中・4分前に確認（例）',
       cause: task ? (task.cause || task.reason) : state === '要判断' ? 'カテゴリを人が選ぶ必要があります' : state === '注意' ? '画像の背景処理を確認してください' : '現在の状態を確認してください',

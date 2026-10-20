@@ -3,7 +3,7 @@
   var C = window.IdealCore, D = window.IdealData, V = window.IdealChecks, M = window.IdealMarks, e = C.escape;
   var selected = D.drafts[0].id, resultRow = null;
   function current() { return D.drafts.find(function (d) { return d.id === selected; }); }
-  function product(d) { return D.products.find(function (p) { return p.id === d.product; }); }
+  function product(d) { return D.products.find(function (p) { return p.id === d.product; }) || d.sourceProduct; }
   function field(label, key, value, type) {
     return '<label>' + e(label) + '<input data-field="' + e(key) + '" type="' + (type || 'text') + '" value="' + e(value) + '"' + (key === 'title' ? ' maxlength="80"' : type === 'number' ? ' min="0" step="0.01"' : '') + '></label>';
   }
@@ -20,7 +20,7 @@
   var targets = { required: 'edit-content', category: 'category-edit', regulations: 'edit-content', price: 'price-edit', policies: 'policy-edit', duties: 'policy-edit', impact: 'edit-content' };
   function validation(d) {
     var v = V.validateListing(d, D.settings);
-    return '<h2>自動検証 ' + M.component('checks') + '</h2><p role="status">' + (v.canPublish ? '出品できます' : 'あと' + v.blockers.length + 'か所直すと出せます') + '</p><p class="' + (v.takeHome && v.takeHome.yen < 0 ? 'loss' : '') + '">見込み手残り：' + (v.takeHome && v.takeHome.yen < 0 ? '⚠ 赤字 ' : '') + C.money(v.takeHome && v.takeHome.yen) + '</p><small>例：為替155円、手数料13.25%＋1.35%＋$0.40 / ¥62。送料・仕入れ値を差し引きます。</small>' +
+    return '<h2>' + window.IdealHelp.term('自動検証') + ' ' + M.component('checks') + '</h2><p role="status">' + (v.canPublish ? '出品できます' : 'あと' + v.blockers.length + 'か所直すと出せます') + '</p><p class="' + (v.takeHome && v.takeHome.yen < 0 ? 'loss' : '') + '">見込み' + window.IdealHelp.term('手残り') + '：' + (v.takeHome && v.takeHome.yen < 0 ? '⚠ 赤字 ' : '') + C.money(v.takeHome && v.takeHome.yen) + '</p><small>例：為替155円、手数料13.25%＋1.35%＋$0.40 / ¥62。送料・仕入れ値を差し引きます。</small>' +
       '<p>送料：' + C.money(d.shipping > 0 ? d.shipping : null) + ' · 仕入れ値：' + C.money(d.cost > 0 ? d.cost : null) + '</p><ul class="check-list ' + (C.mode === '上級' ? 'compact-checks' : '') + '">' + v.checks.map(function (check) {
         var labels = { ok: '✓ 確認済み', warn: '△ 注意', block: '⛔ 停止', unknown: '？ 不明' };
         var fix = '';
@@ -30,7 +30,7 @@
           else if (check.id === 'price') fix = ['価格を上げる', '送料を見直す', '仕入れ値を確認'].map(function (label, i) { return '<button data-focus="' + ['gross', 'shipping', 'cost'][i] + '">' + label + '</button>'; }).join('');
           else fix = '<button data-jump="' + targets[check.id] + '">' + e(check.fixLabel) + '</button>';
         }
-        return '<li><strong>' + labels[check.status] + ' · ' + e(check.label) + '</strong><p>' + e(check.reason) + '</p>' + (C.mode === 'はじめて' ? '<small>' + e(check.effect) + '。下の操作から確認できます。</small>' : '') + fix + '</li>';
+        return '<li><strong>' + labels[check.status] + ' · ' + (check.id === 'category' ? window.IdealHelp.term('カテゴリの確度') : e(check.label)) + '</strong><p>' + e(check.reason) + '</p>' + (C.mode === 'はじめて' ? '<small>' + e(check.effect) + '。下の操作から確認できます。</small>' : '') + fix + (check.id === 'price' ? '<a href="#/criteria/marginFloor">この判断軸を見る/直す</a>' : '') + '</li>';
       }).join('') + '</ul>';
   }
   function finalBar(d) {
@@ -52,11 +52,11 @@
     var result = resultRow ? '<section class="card" role="status"><h2>' + (resultRow.state === '予約済み' ? '予約しました' : '出品しました') + '(試作のため実際には何も送っていません)</h2><p>次は出品管理で状態を確認してください。</p><a class="chip" href="#/listings">出品管理へ</a><button data-make="withdraw-result">取り消し(取り下げ)</button><small>対象1件。出品を終了して下書きへ戻します。試作内だけの操作です。</small></section>' : '';
     if (d.published) return C.pageHeader('作る') + list + result + history() + M.card('create');
     return C.pageHeader('作る') + (C.mode === 'はじめて' ? '<p class="next-step">取り込み → 確認 → 出品：いまは自動検証で停止理由を直してください。</p>' : C.mode === '上級' ? '<p class="muted">p：出品可能な内容を出品します（入力中を除く）。</p>' : '') + list + result +
-      '<div class="make-grid"><div class="make-source"><section class="card"><h2>取り込んだ内容</h2><h3>' + e(p.name) + '</h3><p>状態：' + e(p.condition + ' · ' + p.conditionNote) + '</p><p>価格：' + C.money(p.cost) + '</p><p>仕入れ先：架空フリマ「こもれび市場」</p>' + gallery(p.images) + '</section><section class="card" id="buyer-preview">' + preview(d) + '</section></div><div class="make-review">' +
+      '<div class="make-grid"><div class="make-source"><section class="card"><h2>取り込んだ内容</h2><h3>' + e(p.name) + '</h3><p>状態：' + e(p.condition + ' · ' + (p.conditionNote || '状態を確認してください')) + '</p><p>価格：' + C.money(p.cost) + '</p><p>仕入れ先：架空フリマ「こもれび市場」</p>' + gallery(p.images) + '</section><section class="card" id="buyer-preview">' + preview(d) + '</section></div><div class="make-review">' +
       '<section class="card" id="edit-content"><h2>AI が作った英語の出品内容</h2>' + field('タイトル', 'title', d.title) + '<small id="title-counter">' + d.title.length + ' / 80文字</small><label>説明<textarea data-field="description">' + e(d.description) + '</textarea></label><div class="field-grid">' + Object.keys(d.specifics).map(function (key) { return field(key + (d.required.includes(key) ? '（必須）' : ''), 'specific:' + key, d.specifics[key]); }).join('') + '</div>' +
       '<div id="category-edit"><label>カテゴリ候補<select data-category-choice><option value="">候補から選ぶ</option>' + d.candidates.map(function (c) { return '<option value="' + e(c) + '">' + e(c) + '</option>'; }).join('') + '</select></label><p id="category-confidence">' + e(d.category) + ' · 確度 ' + (Number.isFinite(d.confidence) ? d.confidence + '%（例）' : '—') + '</p></div>' +
       '<div class="field-grid" id="price-edit">' + field('販売価格 $（例・円換算はプレビュー）', 'gross', d.gross, 'number') + field('送料 ¥（例）', 'shipping', d.shipping, 'number') + field('仕入れ値 ¥（例）', 'cost', d.cost, 'number') + '</div><fieldset id="policy-edit"><legend>共通のポリシーと関税の案内（例）</legend>' +
-      [['shipping', '配送', 'Tracked delivery'], ['returns', '返品', 'Returns within 30 days'], ['payment', '支払い', 'Managed payments'], ['duties', '関税', 'DDU', 'DDP']].map(function (a) { return '<label>' + a[1] + '<select data-setting="' + a[0] + '"><option value="">未設定</option>' + a.slice(2).map(function (v) { return '<option' + (D.settings[a[0]] === v ? ' selected' : '') + '>' + v + '</option>'; }).join('') + '</select></label>'; }).join('') + '<small>DDP＝販売者が関税を負担。DDU＝購入者が関税を負担。共通設定はこのセッションの全下書きに使います。</small></fieldset></section>' +
+      [['shipping', '配送', 'Tracked delivery'], ['returns', '返品', 'Returns within 30 days'], ['payment', '支払い', 'Managed payments'], ['duties', '関税', 'DDU', 'DDP']].map(function (a) { return '<label>' + a[1] + '<select data-setting="' + a[0] + '"><option value="">未設定</option>' + a.slice(2).map(function (v) { return '<option' + (D.settings[a[0]] === v ? ' selected' : '') + '>' + v + '</option>'; }).join('') + '</select></label>'; }).join('') + '<small>' + window.IdealHelp.term('DDP') + ' / ' + window.IdealHelp.term('DDU') + '：負担の案内の目安です。共通設定はこのセッションの全下書きに使います。</small></fieldset></section>' +
       '<section class="card" id="listing-checks">' + validation(d) + '</section><section class="card final-bar" id="final-bar">' + finalBar(d) + '</section></div></div>' + history() + M.card('create');
   }
   function refresh(main) {

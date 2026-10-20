@@ -28,7 +28,7 @@
       if (new RegExp(rule[0], 'i').test(text) && !risks.includes(rule[1])) risks.push(rule[1]);
     });
     add('regulations', '禁止語・商標・規制', risks.length ? 'warn' : 'ok', risks.length ? risks.join('・') + '。根拠と配送条件を確認し、確認できない表記は説明から除いてください。' : '試作の検査対象に注意語はありません。実物の規制確認も必要です。', '説明を見直す');
-    add('price', '価格と赤字', money === null ? 'unknown' : money.yen < 0 ? 'block' : 'ok', money === null ? '— 計算できません。価格・送料・仕入れ値に確認済みの正の数を入力してください。' : money.yen < 0 ? '⚠ 赤字。価格を上げる／送料を見直す／仕入れ値を確認してください。' : '例の手数料と費用を引いた手残りは赤字ではありません。', '価格を上げる／送料を見直す／仕入れ値を確認');
+    add('price', '価格と赤字', money === null ? 'unknown' : money.yen < 0 ? 'block' : money.yen / (draft.gross * 155) * 100 < (settings.marginFloor || 0) ? 'warn' : 'ok', money === null ? '— 計算できません。価格・送料・仕入れ値に確認済みの正の数を入力してください。' : money.yen < 0 ? '⚠ 赤字。価格を上げる／送料を見直す／仕入れ値を確認してください。' : money.yen / (draft.gross * 155) * 100 < (settings.marginFloor || 0) ? '利益率が下限未満。価格・送料・判断軸を確認してください。' : '例の手数料と費用を引いた手残りは赤字ではありません。', '価格を上げる／送料を見直す／仕入れ値を確認');
     add('duplicate', '重複出品', draft.duplicate ? 'warn' : 'ok', draft.duplicate ? '同じ商品が出品中です。出品管理で在庫と重複を確認してください。' : '試作データに重複はありません。', '出品管理を見る');
     var unset = [['shipping', '配送'], ['returns', '返品'], ['payment', '支払い']].filter(function (p) { return !settings[p[0]]; }).map(function (p) { return p[1]; });
     add('policies', '配送・返品・支払いポリシーの設定', unset.length ? 'block' : 'ok', unset.length ? unset.join('・') + 'ポリシーが未設定です。この画面で選択してください。' : '配送・返品・支払いの設定があります。', 'ポリシーを選ぶ');

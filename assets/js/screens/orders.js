@@ -21,7 +21,7 @@
     if (filter !== 'すべて' && !counts[filter]) filter = 'すべて';
     return U.start('orders', '発送期限を確認して追跡番号を入力してください。') + '<section class="card after-screen ' + (C.mode === '上級' ? 'after-dense' : '') + '">' +
       U.heading('注文一覧', '仕入れから発送まで、同じ注文の流れに沿って進めます。', 'flow') +
-      '<div class="filters">' + ['すべて', '発送待ち', '仕入れ待ち', '発送済み', '完了'].filter(function (s) { return s === 'すべて' || counts[s]; }).map(function (s) {
+      '<p>' + window.IdealHelp.term('見込み/確定', '確定') + '</p><div class="filters">' + ['すべて', '発送待ち', '仕入れ待ち', '発送済み', '完了'].filter(function (s) { return s === 'すべて' || counts[s]; }).map(function (s) {
         return '<button data-order-filter="' + s + '" aria-pressed="' + (filter === s) + '">' + s + ' ' + (s === 'すべて' ? D.orders.length : counts[s]) + '（例）</button>';
       }).join('') + '</div>' + D.orders.filter(function (r) { return filter === 'すべて' || r.state === filter; }).map(function (row, i) {
         return '<article class="after-row' + (C.mode === 'はじめて' && i === 0 ? ' next-step' : '') + '">' + U.product(row) +

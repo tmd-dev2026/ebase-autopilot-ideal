@@ -7,7 +7,7 @@
   var icon = window.IdealIcons;
   function nav() {
     var badges = D.badges();
-    return D.groups.map(function (group) {
+    return (D.connection.connected ? '' : '<p class="muted">△ eBay連携が切断中（例）</p>') + D.groups.map(function (group) {
       return '<div class="nav-group">' + (group[0] ? '<h2>' + group[0] + '</h2>' : '') +
         group[1].map(function (entry) {
           var id = entry[0];
@@ -21,7 +21,7 @@
   }
   function open(content) { returnFocus = document.activeElement; dialog.innerHTML = '<div class="dialog-top"><span id="dialog-title">理想のオートパイロット・試作</span><button data-action="close" aria-label="閉じる">閉じる ×</button></div>' + content; dialog.showModal(); }
   function close() { dialog.close(); pending = null; if (returnFocus && returnFocus.isConnected) returnFocus.focus(); else { var display = document.querySelector('[data-action="display"]'); if (display && display.getClientRects && display.getClientRects().length) display.focus(); else document.getElementById('main').focus(); } }
-  function toast(text, id) { var node = document.createElement('div'); node.className = 'toast'; node.innerHTML = '<span>' + e(text) + '</span>' + (id ? '<button data-action="undo" data-id="' + id + '">元に戻す</button>' : '') + '<button data-action="dismiss" aria-label="通知を閉じる">×</button>'; document.getElementById('toasts').appendChild(node); }
+  function toast(text, id, continueMaking) { var node = document.createElement('div'); node.className = 'toast'; node.innerHTML = '<span>' + e(text) + '</span>' + (continueMaking ? '<a href="#/create">作る で続ける</a>' : '') + (id ? '<button data-action="undo" data-id="' + id + '">元に戻す</button>' : '') + '<button data-action="dismiss" aria-label="通知を閉じる">×</button>'; document.getElementById('toasts').appendChild(node); }
   function toastUndo(text, callback) {
     var id = 'screen-undo-' + (++undoSerial);
     undoCallbacks[id] = callback;
@@ -56,8 +56,9 @@
   }
   function render() {
     var focused = document.activeElement, action = focused && focused.dataset ? focused.dataset.action : '', actionId = focused && focused.dataset ? focused.dataset.id : '';
+    window.IdealHelp.closeTerm();
     var nextRoute = D.route(window.location.hash);
-    if (route !== nextRoute || previousMode !== C.mode) window.IdealAfterUI.cancelPending();
+    if (route !== nextRoute || previousMode !== C.mode) { window.IdealAfterUI.cancelPending(); pending = null; }
     previousMode = C.mode;
     route = nextRoute;
     if (!/^#\//.test(window.location.hash) || window.location.hash.split('/')[1] !== route) window.history.replaceState(null, '', '#/' + route);
@@ -95,7 +96,8 @@
     window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
     // Notification links still expand and focus their specific task.
     var id = window.location.hash.split('/')[2];
-    var target = id && document.getElementById('item-' + id);
+    if (route === 'criteria' && id) { var setting = document.getElementById('setting-' + id); if (setting) { setting.focus(); setting.scrollIntoView({ block: 'center' }); } }
+    var target = route === 'today' && id && document.getElementById('item-' + id);
     if (target) {
       target.open = true;
       target.querySelector('summary').focus();
@@ -103,6 +105,10 @@
   }
   document.addEventListener('click', function (event) {
     if (event.target.closest('.skip')) { event.preventDefault(); document.getElementById('main').focus(); return; }
+    var term = event.target.closest('[data-term]');
+    if (term) { window.IdealHelp.toggleTerm(term); return; }
+    var tab = event.target.closest('[data-help-tab]');
+    if (tab) { dialog.innerHTML = '<div class="dialog-top"><span id="dialog-title">ヘルプ</span><button data-action="close">閉じる ×</button></div>' + window.IdealHelp.dialog(tab.dataset.helpTab); dialog.querySelector('#help-tab-' + tab.dataset.helpTab).focus(); return; }
     var b = event.target.closest('[data-action]');
     if (!b) { if (event.target.closest('#dialog a')) close(); return; }
     var action = b.dataset.action, id = b.dataset.id, item = D.items.find(function (i) { return i.id === id; });
@@ -117,15 +123,28 @@
     if (action === 'filter') { T.filter = id; render(); }
     if (action === 'legend') open(M.legend());
     if (action === 'drawer') open('<h2>すべての作業</h2><nav>' + nav() + '</nav>');
-    if (action === 'shortcuts') open('<h2>キーボード操作</h2><p>Tab：次の操作へ ／ Shift + Tab：前へ ／ Escape：パネルを閉じる ／ ?：このヘルプ</p><p>上級の今日：j / k で項目移動、Enterで項目を開閉。開いた項目ではTabで操作を選び、Enterで実行します。</p>');
+    if (action === 'shortcuts') open(window.IdealHelp.dialog());
+
     if (action === 'notifications') {
       var notes = document.getElementById('notifications'); notes.hidden = !notes.hidden; b.setAttribute('aria-expanded', String(!notes.hidden));
       notes.innerHTML = '<h2>対応が必要な通知</h2>' + (D.active().slice(0, 3).map(function (i) { return '<p><a href="#/today/' + i.id + '">' + e(D.categories.find(function (c) { return c.id === i.category; }).label + '：' + D.products.find(function (p) { return p.id === i.product; }).name) + '</a></p>'; }).join('') || '<p>対応が必要な通知はありません。</p>');
     }
-    if (action === 'support') { supportScreen = D.title(route); open('<h2>この画面で困った</h2><h3>既知の不具合（例）</h3><ul><li>確認中：画像と説明の表示差</li><li>修正中：過去の取り込みが欠ける</li><li>修正済み：通知の件数ずれ（過去分も修復済み）</li></ul><form id="support-form"><p>対象画面：' + e(supportScreen) + '</p><label>困った内容<textarea name="report" required></textarea></label><button>この画面を運営に送る（試作）</button></form>'); }
+    if (action === 'support') { supportScreen = D.title(route); open('<h2>この画面で困った</h2>' + window.IdealHelp.knownIssues() + '<form id="support-form"><p>対象画面：' + e(supportScreen) + '</p><label>困った内容<textarea name="report" required></textarea></label><button>この画面を運営に送る（試作）</button></form>'); }
     if (action === 'dismiss') b.parentElement.remove();
     if (action === 'undo') { if (undoCallbacks[id]) { undoCallbacks[id](); delete undoCallbacks[id]; } else D.undo(id); b.parentElement.remove(); render(); document.getElementById('main').focus(); toast('元に戻しました'); }
-    if (action === 'automation') { var a = D.automations.find(function (v) { return v.id === id; }); a.on = !a.on; render(); toast(a.name + (a.on ? 'を再開しました（試作）' : 'を停止しました（試作）。' + a.impact)); }
+    if (action === 'automation') {
+      var a = D.automations.find(function (v) { return v.id === id; });
+      if (!a) return;
+      function applyAutomation(on, confirmed) {
+        var undo = D.setAutomation(id, on, confirmed);
+        if (!undo) return;
+        render(); toastUndo(a.name + (on ? 'を再開しました（試作）' : 'を停止しました（試作）'), undo);
+      }
+      if (a.on) {
+        open('<h2>自動処理を停止しますか</h2><p>' + e(D.automationImpact(a)) + '</p><button data-action="confirm">影響を確認してOFFにする</button><button data-action="close">やめる</button>');
+        pending = function () { applyAutomation(false, true); };
+      } else applyAutomation(true, false);
+    }
     if (action === 'fix') finish(id, '修正しました');
     if (action === 'message') {
       var draft = document.querySelector('[data-draft="' + id + '"]').value.trim();
@@ -144,6 +163,7 @@
   document.addEventListener('toggle', function (event) { if (event.target.matches && event.target.matches('[data-task]')) { var button = event.target.querySelector('[data-action="expand"]'); if (button) button.setAttribute('aria-expanded', String(event.target.open)); } }, true);
   document.addEventListener('input', function (event) {
     var t = event.target;
+    if (t.id === 'glossary-search') document.getElementById('glossary-results').innerHTML = window.IdealHelp.results(t.value);
     if (t.dataset.draft) D.items.find(function (i) { return i.id === t.dataset.draft; }).draft = t.value;
     if (t.name === 'tracking') {
       var form = t.closest('form'), row = D.orders.find(function (r) { return r.id === form.dataset.shipment; });
@@ -166,9 +186,11 @@
     }
   });
   document.addEventListener('keydown', function (event) {
-    if (event.key === 'Escape') { var search = document.getElementById('search-form'); if (search && !search.hidden) { search.hidden = true; var searchButton = document.querySelector('[data-action="search"]'); searchButton.setAttribute('aria-expanded', 'false'); searchButton.focus(); } var notes = document.getElementById('notifications'); if (notes && !notes.hidden) { notes.hidden = true; var bell = document.querySelector('[data-action="notifications"]'); bell.setAttribute('aria-expanded', 'false'); bell.focus(); } }
+    var termButton = event.target.closest && event.target.closest('[data-term]');
+    if (termButton && ['Enter', ' '].includes(event.key)) { event.preventDefault(); window.IdealHelp.toggleTerm(termButton); return; }
+    if (event.key === 'Escape') { window.IdealHelp.closeTerm(); var search = document.getElementById('search-form'); if (search && !search.hidden) { search.hidden = true; var searchButton = document.querySelector('[data-action="search"]'); searchButton.setAttribute('aria-expanded', 'false'); searchButton.focus(); } var notes = document.getElementById('notifications'); if (notes && !notes.hidden) { notes.hidden = true; var bell = document.querySelector('[data-action="notifications"]'); bell.setAttribute('aria-expanded', 'false'); bell.focus(); } }
     if (/INPUT|TEXTAREA|SELECT/.test(event.target.tagName) || event.target.isContentEditable) return;
-    if (event.key === '?' && !dialog.open) { event.preventDefault(); open('<h2>ショートカット</h2><p>Tabで移動、Enterで操作、Escapeで閉じる。上級の今日では j / k で項目移動できます。</p>'); }
+    if (event.key === '?' && !dialog.open) { event.preventDefault(); open(window.IdealHelp.dialog()); }
     if (C.mode === '上級' && route === 'today' && !dialog.open && ['j', 'k'].includes(event.key)) { var rows = Array.from(document.querySelectorAll('[data-task] > summary')), index = rows.indexOf(document.activeElement); if (rows.length) { event.preventDefault(); rows[index < 0 ? (event.key === 'j' ? 0 : rows.length - 1) : (index + (event.key === 'j' ? 1 : -1) + rows.length) % rows.length].focus(); } }
   });
   dialog.addEventListener('cancel', function (event) { event.preventDefault(); close(); });

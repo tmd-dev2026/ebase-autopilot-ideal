@@ -1,0 +1,98 @@
+'use strict';
+const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const { boot } = require('./app.test.js');
+const app = boot(), w = app.window, D = w.IdealData, C = w.IdealCore, S = w.IdealSourcing;
+const main = app.node('main');
+main.querySelector = s => app.node(s);
+const route = name => { w.location.hash = '#/' + name; w.IdealShell.render(); };
+const click = (source, id) => main.onclick({ target: { closest: () => ({ dataset: { source, id } }) } });
+const submit = (id, elements) => main.onsubmit({ preventDefault() {}, target: { id, elements } });
+const undo = () => app.click('undo', app.node('toasts').children.at(-1).innerHTML.match(/data-id="([^"]+)"/)[1]);
+assert.equal(D.research.length, 8); assert.equal(D.products.length, 6);
+assert.equal(D.research.filter(r => !r.images.length).length, 2);
+for (const row of D.research) {
+  const c = S.costs(row);
+  assert.ok(Math.abs(c.fee - (row.gross * .146 + .4) * 155) < 1e-8);
+  assert.ok(Math.abs(row.gross * 155 - row.cost - row.domestic - row.international - row.duty - c.fee - c.takeHome.yen) < 1e-8);
+  assert.equal(c.takeHome.yen, w.IdealChecks.takeHome(row.gross, c.shipping, row.cost).yen);
+}
+for (const mode of C.modes) {
+  C.setMode(mode);
+  for (const name of ['sourcing', 'candidates', 'import']) {
+    route(name);
+    assert.equal((main.innerHTML.match(/<h1>/g) || []).length, 1);
+    assert.match(main.innerHTML, /本物との対応/);
+    assert.doesNotMatch(main.innerHTML, /NaN|undefined|この画面は次の段階/);
+  }
+}
+C.setMode('ふだん'); route('sourcing');
+assert.match(main.innerHTML, /全コスト込みの利益/);
+assert.match(main.innerHTML, /将来[^]*同じ商品の売れた例/);
+assert.match(main.innerHTML, /eBay の売れた実績の取得には制約があり、この試作ではダミーです。本物にするには新しい取得方法の確認が要ります/);
+const loss = D.research[2], avoided = D.research[1], safe = D.research[0], floor = D.research[6];
+assert.ok(S.costs(loss).takeHome.yen < 0);
+assert.match(S.gate(D, loss, '上級', '例外理由').reason, /赤字/);
+assert.equal(S.importRow(D, loss, '上級', '例外理由').status, '失敗');
+assert.match(main.innerHTML, new RegExp('data-id="' + loss.id + '" aria-describedby="stop-' + loss.id + '" disabled'));
+assert.match(S.gate(D, avoided, '上級', '例外理由').reason, /判断軸で避ける設定/);
+const restore = w.IdealCriteria.save(D, 'avoid', [], '避ける条件の見直し');
+assert.doesNotMatch(S.gate(D, avoided, 'ふだん').reason, /避ける設定/);
+restore();
+const restoreBrand = w.IdealCriteria.save(D, 'avoid', [{ type: 'brand', value: '木陰工房', reason: '確認が必要' }], 'ブランドを確認');
+assert.match(S.gate(D, floor, '上級', '例外理由').reason, /避ける設定/);
+restoreBrand();
+assert.ok(S.costs(floor).margin > 0 && S.costs(floor).margin < 10);
+for (const mode of ['ふだん', 'はじめて']) assert.equal(S.importRow(D, floor, mode, '理由あり').status, '失敗');
+assert.equal(S.importRow(D, floor, '上級', '').status, '失敗');
+const n = D.drafts.length;
+assert.equal(S.importRow(D, floor, '上級', '送料を確認済み').status, '完了');
+assert.equal(D.drafts.length, n + 1);
+assert.equal(D.decisions.at(-1).reason, '送料を確認済み');
+route('create'); assert.match(main.innerHTML, /卓上ライト/);
+// New photo-free draft is selectable and renders without relying on products-data additions.
+main.onclick({ target: { closest: () => ({ dataset: { draftId: 'source-' + floor.id } }) } });
+assert.match(main.innerHTML, /写真が不足/);
+route('sourcing'); click('candidate', safe.id);
+assert.equal(D.candidates.length, 1); route('candidates'); assert.match(main.innerHTML, /合計 1 件/);
+click('remove', safe.id); assert.equal(D.candidates.length, 0); assert.match(main.innerHTML, /候補はまだありません/);
+undo(); assert.equal(D.candidates.length, 1);
+click('skip', safe.id); assert.equal(D.candidates[0].state, '見送り'); undo();
+assert.equal(D.candidates[0].state, '検討中');
+const drafts = D.drafts.length;
+click('import', safe.id); assert.equal(D.drafts.length, drafts + 1);
+assert.equal(D.candidates[0].state, '取り込み済み');
+assert.match(app.node('toasts').children.at(-1).innerHTML, /href="#\/create">作る で続ける/);
+click('import', safe.id); assert.equal(D.drafts.length, drafts + 1); assert.match(main.innerHTML, /重複/);
+route('sourcing'); submit('research-search', { query: { value: '<img onerror=x>' } });
+assert.match(main.innerHTML, /&lt;img onerror=x&gt;/); assert.doesNotMatch(main.innerHTML, /<img onerror=x>/);
+submit('research-search', { query: { value: '布の小物入れ' } });
+assert.equal((main.innerHTML.match(/class="card research-row"/g) || []).length, 1);
+route('import');
+const fresh = D.research[7], before = D.drafts.length;
+submit('source-urls', { urls: { value: fresh.url + '\n' + fresh.url + '\nこもれび市場.example/missing\n<script>x</script>' } });
+assert.equal(D.importJobs[0].status, '取得中');
+assert.match(main.innerHTML, /&lt;script&gt;x&lt;\/script&gt;/);
+Promise.resolve().then(() => {
+  assert.deepEqual(Array.from(D.importJobs, j => j.status), ['完了', '重複', '失敗', '失敗']);
+  assert.equal(D.drafts.length, before + 1);
+  assert.match(main.innerHTML, /ページが見つからない/); assert.match(main.innerHTML, /対応していないサイト/);
+  assert.doesNotMatch(main.innerHTML, /<script>|INTERNAL|UNKNOWN|404|500/);
+  assert.equal(D.steps[4][1], true);
+  route('criteria');
+  assert.equal((main.innerHTML.match(/class="card criteria-settings/g) || []).length, 1);
+  assert.doesNotMatch(main.innerHTML, /<h2>判断軸/);
+  assert.equal((main.innerHTML.match(/丁寧/g) || []).length, 1);
+  main.onclick({ target: { closest: () => ({ dataset: { edit: 'marginFloor' } }) } });
+  main.oninput({ target: { value: '99', hasAttribute: () => true } });
+  assert.match(app.node('#criteria-impact').innerHTML, /<details><summary>ほか \d+ 件/);
+  assert.match(app.node('#criteria-impact').innerHTML, /出品 \d+ 件・下書き \d+ 件が変わります/);
+  assert.equal((app.node('#criteria-impact').innerHTML.split('<details>')[0].match(/<li>/g) || []).length, 5);
+  route('setup'); assert.match(main.innerHTML, /role="switch"[^>]*id="disconnect-demo"/);
+  for (const row of main.innerHTML.matchAll(/<article class="setup-row[^]*?<\/article>/g)) if (row[0].includes('✓')) assert.doesNotMatch(row[0], /次の一手/);
+  route('automation'); assert.doesNotMatch(main.innerHTML.split('automation-grid')[0], /data-term=/);
+  assert.equal((main.innerHTML.match(/<dl>/g) || []).length, 4);
+  const css = fs.readFileSync('assets/css/app.css', 'utf8');
+  assert.match(css, /\.automation-grid \{ display: grid; grid-template-columns: repeat\(2, minmax\(0, 1fr\)\)/);
+  console.log('PASS stage 4b: shared costs/guards, overrides, candidates undo, drafts, URL statuses, escaping, modes and polish');
+}).catch(error => { console.error(error); process.exitCode = 1; });

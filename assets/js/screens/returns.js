@@ -8,7 +8,7 @@
     return U.start('returns', '受付内容と注文の記録を確認してください。') +
       '<div class="after-screen ' + (C.mode === '上級' ? 'after-dense' : '') + '">' + D.returnCases.map(function (row, i) {
         var order = D.orders.find(function (o) { return o.id === row.orderId; });
-        return '<section class="card' + (C.mode === 'はじめて' && i === 0 ? ' next-step' : '') + '">' + (i === 0 ? '<p class="compact-notice">手順は例です。eBayの最新の規定は eBay の画面で確認してください</p>' : '') + U.heading(row.kind, '記録を確認してから、購入者への連絡と返金・返送を判断します。') + U.product(order) +
+        return '<section class="card' + (C.mode === 'はじめて' && i === 0 ? ' next-step' : '') + '">' + (i === 0 ? '<p class="compact-notice">手順は例です。eBayの最新の規定は eBay の画面で確認してください</p><p>' + window.IdealHelp.term('返品ポリシー') + '</p>' : '') + U.heading(row.kind, '記録を確認してから、購入者への連絡と返金・返送を判断します。') + U.product(order) +
           '<p>対象金額 ' + C.money(row.amount * 155) + '</p><blockquote lang="en">' + e(row.original) + '</blockquote><p>' + e(row.summary) + '</p>' +
           U.stepper(steps, row.step) +
           '<p><strong>次にやること：</strong>' + next[row.step] + '</p>' + (row.step < 3 ? U.button('case-next', row.id, '確認して次の手順へ') : '') +
