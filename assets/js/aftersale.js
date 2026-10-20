@@ -11,7 +11,7 @@
   }
   function refundImpact(order, dollars) {
     var before = balance(order);
-    if (!before || !Number.isFinite(dollars) || dollars <= 0 || dollars > order.gross) return null;
+    if (!before || !Number.isFinite(dollars) || dollars <= 0 || dollars > order.gross - (order.refund || 0)) return null;
     var yen = dollars * 155, remaining = before.yen - yen;
     return { yen: yen, usd: dollars, remaining: remaining, remainingUsd: remaining / 155, loss: remaining < 0 };
   }

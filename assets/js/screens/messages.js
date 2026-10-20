@@ -8,7 +8,7 @@
       '<p class="thread-meta muted">根拠：' + e(row.reason) + ' · 確信度 ' + (Number.isFinite(row.confidence) ? row.confidence + '%（例）' : '—') + '</p>' +
       (A.lowConfidence(row.confidence) ? '<p class="warning-notice" role="alert">人が書いてください。AIの案は参考です</p>' : '') +
       row.sent.map(function (s) { return '<p>送信済み（試作）</p><blockquote lang="en">' + e(s) + '</blockquote>'; }).join('') +
-      '<p class="muted">返信のトーン：' + e(D.settings.tone) + '（AI生成時に使う文体の例）</p><p lang="en">' + e(D.replySamples[D.settings.tone]) + '</p><label>AI返信案（English・編集できます）<textarea rows="4" id="reply-text" data-reply="' + e(row.id) + '">' + e(row.draft) + '</textarea></label>' + U.button('message', row.id, '確認して送信', !row.draft.trim(), true);
+      '<p class="muted">返信のトーン：' + e(D.settings.tone) + '（AI生成時に使う文体の例）</p><p lang="en">' + e(D.replySamples[D.settings.tone]) + '</p><label>AI返信案（English・編集できます）<textarea rows="4" maxlength="2000" id="reply-text" data-reply="' + e(row.id) + '">' + e(row.draft) + '</textarea><span id="reply-counter">' + row.draft.length + ' / 2000文字</span></label>' + U.button('message', row.id, '確認して送信', !row.draft.trim(), true);
   }
   function render() {
     var row = D.conversations.find(function (r) { return r.id === selected; });
@@ -23,14 +23,15 @@
     main.oninput = function (event) {
       var t = event.target;
       if (!t.dataset.reply) return;
-      D.conversations.find(function (r) { return r.id === t.dataset.reply; }).draft = t.value;
+      var row = D.conversations.find(function (r) { return r.id === t.dataset.reply; }); row.draft = t.value; row.manuallyEdited = true;
+      main.querySelector('#reply-counter').textContent = t.value.length + ' / 2000文字';
       var b = main.querySelector('[data-after="message"]');
-      if (b) b.disabled = !t.value.trim();
+      if (b) b.disabled = !t.value.trim() || t.value.length > 2000;
     };
     main.onclick = function (event) {
       var b = event.target.closest('button');
       if (!b) return;
-      if (b.dataset.conversation) { selected = b.dataset.conversation; opened = true; window.IdealShell.render(); }
+      if (b.dataset.conversation) { U.cancelPending(); selected = b.dataset.conversation; opened = true; window.IdealShell.render(); }
       if (confirm.click(b.dataset.after)) return;
       if (b.dataset.after === 'back') { opened = false; window.IdealShell.render(); }
       if (b.dataset.after === 'message') confirm.prepare('message', selected, D.conversations.find(function (r) { return r.id === selected; }).draft);
@@ -44,7 +45,7 @@
         rows[index < 0 ? 0 : (index + (event.key === 'j' ? 1 : -1) + rows.length) % rows.length].focus();
       }
       if (event.key === 'Enter' && event.target.dataset.conversation) {
-        event.preventDefault(); selected = event.target.dataset.conversation; opened = true; window.IdealShell.render();
+        event.preventDefault(); U.cancelPending(); selected = event.target.dataset.conversation; opened = true; window.IdealShell.render();
       }
       if (event.key === 'r') { event.preventDefault(); opened = true; window.IdealShell.render(); main.querySelector('#reply-text').focus(); }
     };

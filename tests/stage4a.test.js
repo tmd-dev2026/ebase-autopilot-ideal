@@ -19,7 +19,7 @@ for (const mode of C.modes) {
     assert.ok((header.match(/class="primary"/g) || []).length <= 1);
   }
 }
-route('automation');
+route('automation'); app.node('automation-reason').value = '在庫の確認';
 assert.equal(D.automations.length, 4);
 assert.equal((main.innerHTML.match(/data-run/g) || []).length, 20);
 app.click('automation', 'stock'); assert.equal(D.automations[0].on, true);
@@ -45,7 +45,7 @@ route('today'); assert.match(main.innerHTML, /在庫監視と注文同期が止�
 route('setup'); click({ setup: '0' }); click({ completeStep: '0' });
 assert.equal(D.connection.connected, true); assert.equal(D.steps[0][1], true);
 click({ setup: '1' }); click({ completeStep: '1' });
-C.setMode('はじめて'); route('today'); assert.match(main.innerHTML, /✓ 完了：ポリシー/);
+C.setMode('はじめて'); route('today'); assert.match(main.innerHTML, /✓ 完了：[\s\S]*data-term="ポリシー"/);
 assert.match(main.innerHTML, /いまやること：販売実績を入力する/);
 D.steps.forEach(s => { s[1] = true; }); assert.doesNotThrow(() => w.IdealToday.render());
 route('criteria'); assert.match(main.innerHTML, /まずこの3つだけ/);

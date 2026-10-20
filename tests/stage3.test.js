@@ -17,8 +17,8 @@ function undoLast() {
   app.click('undo', html.match(/data-id="([^"]+)"/)[1]);
 }
 function badges() {
-  assert.equal(D.badges().orders, D.orders.filter(r => r.state === '発送待ち').length);
-  assert.equal(D.badges().messages, D.conversations.filter(r => r.unread).length);
+  assert.equal(D.badges().orders, D.orders.filter(r => r.state === '発送待ち' || r.state === '仕入れ待ち' && r.sourceEnded && !r.contacted).length);
+  assert.equal(D.badges().messages, D.conversations.filter(r => !r.replied).length);
   for (const [name, n] of Object.entries(D.badges())) {
     if (n) assert.match(w.IdealShell.nav(), new RegExp('data-badge="' + name + '"[^>]*>' + n + '</span>'));
     else assert.doesNotMatch(w.IdealShell.nav(), new RegExp('data-badge="' + name + '"'));
@@ -71,8 +71,8 @@ assert.equal(D.prepareAftersale('ship', 'ship-camera', 'bad'), null);
 assert.equal(D.executeAftersale({ kind: 'ship', id: 'ship-camera', value: 'TRACK-123' }), null);
 route('orders'); assert.match(main.innerHTML, /期限超過/); assert.match(main.innerHTML, /期限が近い/);
 assert.match(main.innerHTML, /source[^>]*disabled/); assert.match(main.innerHTML, /キャンセル連絡の案内/);
-assert.match(main.innerHTML, /見込み ¥2,000 \/ \$12.90（例）／実際 ¥5,020/);
-assert.match(main.innerHTML, /⚠ 赤字：送料の見込み違い/);
+assert.match(main.innerHTML, /見込み[\s\S]* ¥2,000 \/ \$12.90（例）／実際 ¥5,020/);
+assert.match(main.innerHTML, /⚠ 赤字：送料の[\s\S]*見込み[\s\S]*違い/);
 // Two-pane messages: a synthetic send click without a preview cannot send.
 fresh(); route('messages');
 click({ after: 'execute' }); assert.equal(D.conversations[0].sent.length, 0);
@@ -85,9 +85,9 @@ click({ after: 'cancel' }); click({ after: 'execute' }); assert.equal(D.conversa
 click({ after: 'message', id: 'message-watch' });
 D.conversations[0].draft = 'Changed after preview';
 click({ after: 'execute' }); assert.equal(D.conversations[0].sent[0], 'Exact reply <safe>');
-assert.equal(D.counts().message, 1); assert.equal(D.conversations[0].replied, true); badges();
+assert.equal(D.counts().message, 3); assert.equal(D.conversations[0].replied, true); badges();
 assert.doesNotMatch(w.IdealToday.render(), /data-task="message-watch"/);
-undoLast(); assert.equal(D.counts().message, 2); assert.equal(D.conversations[0].sent.length, 0); badges();
+undoLast(); assert.equal(D.counts().message, 4); assert.equal(D.conversations[0].sent.length, 0); badges();
 click({ conversation: 'message-delay' });
 assert.match(main.innerHTML, /41%（例）/); assert.match(main.innerHTML, /人が書いてください。AIの案は参考です/);
 click({ after: 'message', id: 'message-delay' });
@@ -112,13 +112,13 @@ main.onkeydown({ key: 'r', target: { tagName: 'MAIN' }, preventDefault() {} }); 
 main.onkeydown({ key: 'j', target: { tagName: 'TEXTAREA' }, preventDefault() { throw Error('input shortcut fired'); } });
 // Today also uses the same guarded send handler and updates the inbox.
 route('today'); app.node('[data-draft="message-watch"]').value = 'Today exact reply'; app.click('message', 'message-watch');
-app.click('confirm'); assert.equal(D.conversations[0].sent[0], 'Today exact reply'); assert.equal(D.badges().messages, 1); undoLast(); badges();
+app.click('confirm'); assert.equal(D.conversations[0].sent[0], 'Today exact reply'); assert.equal(D.badges().messages, 3); undoLast(); badges();
 // Refund is the second explicit click; preview never mutates orders.
 fresh(); route('returns'); const caseRow = D.returnCases[0], order = D.orders.find(o => o.id === caseRow.orderId);
 click({ after: 'execute' }); assert.equal(order.refund, 0);
 click({ after: 'refund', id: caseRow.id }); assert.equal(order.refund, 0);
 assert.match(main.innerHTML, /返金は取り消せない/); assert.match(main.innerHTML, /¥15,500 \/ \$100.00/);
-assert.match(main.innerHTML, /¥-16,345 \/ \$-105.45/); assert.match(main.innerHTML, /手数料・実送料・仕入れ値が残るため/);
+assert.match(main.innerHTML, /-¥16,345 \/ -\$105.45/); assert.match(main.innerHTML, /手数料・実送料・仕入れ値が残るため/);
 assert.match(main.innerHTML, /影響を理解して返金する（試作のみ）/); assert.match(main.innerHTML, /将来/);
 click({ after: 'cancel' }); click({ after: 'execute' }); assert.equal(order.refund, 0);
 click({ after: 'refund', id: caseRow.id }); click({ after: 'execute' }); assert.equal(order.refund, 100); assert.equal(caseRow.step, 4);
@@ -165,10 +165,10 @@ D.orders.find(o => o.id === refundCase.orderId).actualShipping += 100;
 assert.equal(D.executeAftersale(staleRefund), null);
 // Ad effects and reversible switches.
 fresh(); route('ads');
-for (const text of ['効いている', '赤字になっている', 'データが少ない—']) assert.ok(main.innerHTML.includes(text));
-click({ ad: 'ad-0' }); assert.equal(D.ads[0].on, false);
+for (const text of ['効いている', '出品停止中', '⚠ 赤字']) assert.ok(main.innerHTML.includes(text));
+click({ ad: 'ad-4' }); assert.equal(D.ads[4].on, false);
 assert.match(main.innerHTML, /role="switch" aria-checked="false"/); assert.match(main.innerHTML, /止めると表示が減る可能性があります・いつでも再開できます/);
-undoLast(); assert.equal(D.ads[0].on, true);
+undoLast(); assert.equal(D.ads[4].on, true);
 // Reports and 今日 use the same aggregates, with a full text alternative for the SVG.
 route('reports'); const report = A.reports(D.orders, D.listings);
 const sum = D.orders.filter(o => o.state === '完了').reduce((s, o) => s + A.balance(o).yen - o.refund * 155, 0);
@@ -177,7 +177,7 @@ assert.equal(report.gap, D.orders.reduce((s, o) => s + (o.actualShipping === nul
 assert.ok(main.innerHTML.includes(w.IdealCore.money(sum)));
 assert.match(main.innerHTML, /<svg[^>]*role="img"/); assert.match(main.innerHTML, /グラフのテキスト代替/);
 assert.match(main.innerHTML, /class="metric estimated"/); assert.match(main.innerHTML, /class="metric confirmed"/);
-assert.match(main.innerHTML, /割合25%/); assert.match(main.innerHTML, /送料の見込み違い/);
+assert.match(main.innerHTML, /割合25%/); assert.match(main.innerHTML, /送料の[\s\S]*見込み[\s\S]*違い/);
 for (const d of report.days) assert.ok(main.innerHTML.includes(w.IdealCore.money(d.yen)));
 assert.ok(w.IdealToday.render().includes(w.IdealCore.money(sum)));
 D.orders[4].actualShipping += 100; route('reports');

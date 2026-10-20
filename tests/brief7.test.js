@@ -87,7 +87,7 @@ const zeroDay = w.IdealAftersale.reports([zeroOrder], []).days.find(d => d.date 
 assert.equal(Math.round(zeroDay.yen), 0);
 assert.equal(zeroDay.count, 1);
 const ads = w.IdealScreens.ads.render();
-assert.match(ads, /badge-status[^>]*data-status="error"[^>]*>赤字になっている/);
+assert.match(ads, /badge-status[^>]*data-status="draft"[^>]*>出品停止中/);
 assert.match(ads, /class="switch" role="switch"[\s\S]*switch-track/);
 assert.doesNotMatch(ads, /ad-impact is-visible/);
 assert.match(css, /tr:hover \.ad-impact, tr:focus-within \.ad-impact, \.ad-impact.is-visible \{ display: block;/);

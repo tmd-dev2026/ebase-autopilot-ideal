@@ -9,8 +9,8 @@
   function balance(row) {
     var value = A.balance(row), net = value ? value.yen - row.refund * 155 : null;
     var loss = net !== null && net < 0 ? '<span class="loss">⚠ 赤字：' + (row.refund ? '返金による売上減少・費用が残るため' : '送料の見込み違い') + '</span>' : '';
-    return '<div class="order-balance"><p class="balance-summary">' + U.profit(net) + (value ? '（確定）' : '') + ' ' + loss + '</p><details><summary>損益の内訳</summary><h3>確定の損益 ' + window.IdealMarks.component('balance') + '</h3>' +
-      (value ? '<span class="badge-status" data-status="sold">確定</span>' : '<p>費用未確定：—。実送料が確定したら計算します。</p>') +
+    return '<div class="order-balance"><p class="balance-summary">' + U.profit(net) + (row.state === '完了' && value ? '（確定）' : '（見込み・費用' + (value ? '確認済み' : '不明') + '）') + ' ' + loss + '</p><details><summary>損益の内訳</summary><h3>' + (row.state === '完了' ? '確定' : '見込み') + 'の損益 ' + window.IdealMarks.component('balance') + '</h3>' +
+      (value && row.state === '完了' ? '<span class="badge-status" data-status="sold">確定</span>' : (value ? '<p>見込み：費用確認済み。注文の完了後に確定として集計します。</p>' : '<p>見込み：費用不明 —。実送料を確認してください。</p>')) +
       '<dl><dt>売値</dt><dd>' + C.money(row.gross * 155) + '</dd><dt>手数料（13.25%＋1.35%＋固定額・例）</dt><dd>' + C.money((row.gross * 0.146 + 0.4) * 155) +
       '</dd><dt>実送料</dt><dd>' + C.money(row.actualShipping) + '</dd><dt>仕入れ値</dt><dd>' + C.money(row.cost) + '</dd><dt>返金済み</dt><dd>' + C.money(row.refund * 155) + '</dd></dl><p>' + U.profit(value ? value.yen - row.refund * 155 : null) + '</p>' +
       (row.actualShipping !== null && row.shipping !== row.actualShipping ? '<p>送料：見込み ' + C.money(row.shipping) + '／実際 ' + C.money(row.actualShipping) + ' · 差額 ' + C.money(row.actualShipping - row.shipping) + '</p>' : '') +
@@ -27,7 +27,7 @@
         return '<article class="after-row' + (C.mode === 'はじめて' && i === 0 ? ' next-step' : '') + '">' + U.product(row) +
           '<p><span class="badge-status" data-status="' + (row.state === '完了' ? 'sold' : 'scheduled') + '">' + e(row.state) + '</span> · 発送期限 ' + e(row.due) + '（例）' +
           (['発送待ち', '仕入れ待ち'].includes(row.state) ? row.due < '2026-10-20' ? ' · ! 期限超過' : ' · △ 期限が近い' : '') + '</p>' + flow(row) +
-          (row.state === '発送待ち' ? U.trackingHTML(row) : row.state === '仕入れ待ち' ? '<p>仕入れ先：' + e(row.source) + '</p>' +
+          '<p class="muted">' + e(row.listingNote) + '</p>' + (row.state === '発送待ち' ? U.trackingHTML(row) : row.state === '仕入れ待ち' ? '<p>仕入れ先：' + e(row.source) + '</p>' +
             (row.sourceEnded ? '<p role="alert">! 仕入れ先の販売が終了しています。仕入れを進められません。</p><a href="#/messages">キャンセル連絡の案内 → 購入者に連絡する</a>' : '') +
             U.button('source', row.id, '仕入れ完了にする', row.sourceEnded, true) : '<p>追跡番号：' + e(row.tracking) + '</p>') + balance(row) + '</article>';
       }).join('') + '</section>' + U.end('orders');

@@ -5,10 +5,12 @@
   function proposal(row) {
     var value = A.offer(row, row.discount), net = value && value.takeHome;
     var inactive = !row.listing || row.listing.state !== '出品中';
-    var blocked = !net || net.yen < 0 || !row.watchers || inactive;
+    var rules = window.IdealChecks.evaluate(Object.assign({}, row.listing || row, { gross: value && value.gross }), D.settings);
+    var ruleBlock = row.discount > D.settings.discountLimit || rules.avoided || rules.discountExceeded;
+    var blocked = !net || net.yen < 0 || !row.watchers || inactive || ruleBlock || !D.connection.connected;
     if (inactive) return '<p class="muted offer-reason">出品中ではないため送れません・出品管理で対応</p>';
     return '<p class="offer-price">→ 新価格 ' + C.money(value ? value.gross * 155 : null) + ' · ' + U.profit(net ? net.yen : null) + '</p>' +
-      (blocked ? '<p>' + (!value ? '割引率は1〜50%で入力してください' : !net ? '費用が不明なため送れません' : net.yen < 0 ? '赤字になるため送れません' : inactive ? '出品中ではないため送れません。出品管理で状態を確認してください' : 'ウォッチャーがいないため送れません') + '</p>' : '') + U.button('watcher-offer', row.id, '送信内容を確認', blocked, true);
+      (blocked ? '<p>' + (!D.connection.connected ? '連携切断のため送れません' : !value ? '割引率は1〜50%で入力してください' : !net ? '費用が不明なため送れません' : net.yen < 0 ? '赤字になるため送れません' : ruleBlock ? '判断軸の割引上限または避ける商品に該当します' : inactive ? '出品中ではないため送れません。出品管理で状態を確認してください' : 'ウォッチャーがいないため送れません') + '</p>' : '') + U.button('watcher-offer', row.id, '送信内容を確認', blocked, true);
   }
   function incoming() {
     var row = D.incomingOffer, value = A.takeHome(row.gross, row.shipping, row.cost), proposed = A.takeHome(counter, row.shipping, row.cost);
@@ -21,8 +23,10 @@
         '<label>条件として出す価格 $（例）<input type="number" min="0.01" step="0.01" data-counter-offer value="' + counter + '"></label><div id="counter-preview">' + counterHTML(proposed) + '</div></div>') + '</section>';
   }
   function counterHTML(value) {
+    var range = D.counterRange(), listed = range.max;
+    var invalid = counter <= 0 || counter > listed || counter < range.min;
     return '<p class="counter-price">提案価格 ' + C.money(counter > 0 ? counter * 155 : null) + ' · ' + U.profit(value && value.yen) + '</p>' +
-      (!value || value.yen < 0 ? '<p>赤字または不明な価格では条件を出せません</p>' : '') + U.button('counter', D.incomingOffer.id, '条件を出す', !value || value.yen < 0);
+      (invalid ? '<p>出品価格の50〜100%で入力してください（上級でも出品価格以下）</p>' : !value || value.yen < 0 ? '<p>赤字または不明な価格では条件を出せません</p>' : '') + U.button('counter', D.incomingOffer.id, '条件を出す', invalid || !value || value.yen < 0);
   }
   function render() {
     return U.start('offers', '受信オファーの手残りを確認してください。') + '<div class="after-screen ' + (C.mode === '上級' ? 'after-dense' : '') + '">' + incoming() +
@@ -44,11 +48,11 @@
       if (t.dataset.discount) {
         var row = D.watchers.find(function (r) { return r.id === t.dataset.discount; });
         row.discount = Number(t.value);
-        main.querySelector('#offer-' + row.id).innerHTML = proposal(row);
+        main.querySelector('#offer-' + row.id).innerHTML = window.IdealHelp.annotate(proposal(row));
       }
       if (t.hasAttribute('data-counter-offer')) {
         counter = Number(t.value);
-        main.querySelector('#counter-preview').innerHTML = counterHTML(A.takeHome(counter, D.incomingOffer.shipping, D.incomingOffer.cost));
+        main.querySelector('#counter-preview').innerHTML = window.IdealHelp.annotate(counterHTML(A.takeHome(counter, D.incomingOffer.shipping, D.incomingOffer.cost)));
       }
     };
     main.onclick = function (event) {

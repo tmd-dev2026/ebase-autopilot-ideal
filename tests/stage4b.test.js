@@ -33,8 +33,8 @@ assert.match(main.innerHTML, /eBay の売れた実績の取得には制約があ
 const loss = D.research[2], avoided = D.research[1], safe = D.research[0], floor = D.research[6];
 assert.ok(S.costs(loss).takeHome.yen < 0);
 assert.match(S.gate(D, loss, '上級', '例外理由').reason, /赤字/);
-assert.equal(S.importRow(D, loss, '上級', '例外理由').status, '失敗');
-assert.match(main.innerHTML, new RegExp('data-id="' + loss.id + '" aria-describedby="stop-' + loss.id + '" disabled'));
+assert.equal(S.importRow(D, { ...loss, id: 'new-loss', product: 'new-loss' }, '上級', '例外理由').status, '失敗');
+assert.equal(S.importRow(D, loss, '上級', '例外理由').status, '重複');
 assert.match(S.gate(D, avoided, '上級', '例外理由').reason, /判断軸で避ける設定/);
 const restore = w.IdealCriteria.save(D, 'avoid', [], '避ける条件の見直し');
 assert.doesNotMatch(S.gate(D, avoided, 'ふだん').reason, /避ける設定/);
@@ -59,10 +59,12 @@ click('remove', safe.id); assert.equal(D.candidates.length, 0); assert.match(mai
 undo(); assert.equal(D.candidates.length, 1);
 click('skip', safe.id); assert.equal(D.candidates[0].state, '見送り'); undo();
 assert.equal(D.candidates[0].state, '検討中');
+// A distinct source unit exercises the successful import path.
+safe.product = 'new-safe'; safe.id = D.candidates[0].id;
 const drafts = D.drafts.length;
 click('import', safe.id); assert.equal(D.drafts.length, drafts + 1);
 assert.equal(D.candidates[0].state, '取り込み済み');
-assert.match(app.node('toasts').children.at(-1).innerHTML, /href="#\/create">作る で続ける/);
+assert.match(app.node('toasts').children.at(-1).innerHTML, /href="#\/create\/[^"]+">作る で続ける/);
 click('import', safe.id); assert.equal(D.drafts.length, drafts + 1); assert.match(main.innerHTML, /重複/);
 route('sourcing'); submit('research-search', { query: { value: '<img onerror=x>' } });
 assert.match(main.innerHTML, /&lt;img onerror=x&gt;/); assert.doesNotMatch(main.innerHTML, /<img onerror=x>/);

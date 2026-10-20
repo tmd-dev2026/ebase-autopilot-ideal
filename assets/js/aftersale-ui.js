@@ -51,7 +51,8 @@
         scope = window.location.hash + C.mode;
         window.IdealShell.render();
         var region = document.querySelector('.impact-preview');
-        if (pending && region) region.focus();
+        if (pending && region) { region.focus(); if (region.scrollIntoView) region.scrollIntoView({ block: 'center' }); }
+        if (!pending) window.IdealShell.toast(D.lastError || '送信できません：価格範囲・割引の上限・接続状態・文面を確認してください');
       },
       click: function (action) {
         if (action !== 'execute' && action !== 'cancel') return false;
@@ -79,7 +80,7 @@
   }
   function trackingHTML(row) {
     var check = A.tracking(row.tracking);
-    return '<form class="tracking-form" data-shipment="' + e(row.id) + '"><div class="tracking-controls"><label>追跡番号<input name="tracking" autocomplete="off" maxlength="30" value="' + e(row.tracking) + '" aria-describedby="tracking-' + e(row.id) + '"></label><button class="primary" type="submit"' + (check.valid ? '' : ' disabled') + '>発送登録</button></div><p class="tracking-reason muted" id="tracking-' + e(row.id) + '" data-tracking-reason role="status">' + e(check.reason) + '</p></form>';
+    return '<form class="tracking-form" data-shipment="' + e(row.id) + '"><div class="tracking-controls"><label>追跡番号<input name="tracking" autocomplete="off" maxlength="30" value="' + e(row.tracking) + '" aria-describedby="tracking-' + e(row.id) + '"><span data-tracking-count>' + row.tracking.length + ' / 30文字</span></label><button class="primary" type="submit"' + (check.valid ? '' : ' disabled') + '>発送登録</button></div><p class="tracking-reason muted" id="tracking-' + e(row.id) + '" data-tracking-reason role="status">' + e(check.reason) + '</p></form>';
   }
   window.IdealAfterUI = { button: button, stepper: stepper, product: product, profit: profit, heading: heading, start: start,
     cancelPending: function () { controllers.forEach(function (cancel) { cancel(); }); },

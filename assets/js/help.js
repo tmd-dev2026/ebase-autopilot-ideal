@@ -20,7 +20,9 @@
   function toggleTerm(button) {
     if (active === button) { closeTerm(); return; }
     closeTerm(); active = button;
-    document.getElementById(button.getAttribute('aria-describedby')).hidden = false;
+    var described = button.getAttribute('aria-describedby'), popover = described && document.getElementById(described);
+    if (!popover) { var node = document.createElement('span'); node.id = 'inline-term-popup-' + (++serial); node.className = 'term-popover'; node.textContent = glossary[button.dataset.term].definition; button.appendChild(node); button.setAttribute('aria-describedby', node.id); popover = node; }
+    popover.hidden = false;
     button.setAttribute('aria-expanded', 'true');
   }
   function knownIssues() { return '<h3>既知の不具合（例）</h3><ul>' + issues.map(function (text) { return '<li>' + e(text) + '</li>'; }).join('') + '</ul>'; }
@@ -37,5 +39,25 @@
     }).join('') + '</div><div role="tabpanel" id="help-panel" aria-labelledby="help-tab-' + tab + '">' +
       (tab === 'issues' ? knownIssues() : tab === 'glossary' ? '<label>用語を検索<input type="search" id="glossary-search"></label><div id="glossary-results" aria-live="polite">' + results('') + '</div>' : '<p>Tab：次へ ／ Shift + Tab：前へ ／ Enter：操作 ／ Escape：閉じる ／ ?：ヘルプ</p><p>上級：今日・メッセージは j / k で移動、Enterで開く。メッセージの r は返信欄、作るの p は出品、判断軸の e はフォーカスした行を編集します。</p>') + '</div>';
   }
-  window.IdealHelp = { term: term, closeTerm: closeTerm, toggleTerm: toggleTerm, knownIssues: knownIssues, results: results, dialog: dialog };
+  // Tokenize markup, wrapping only display text; form values, SVG and existing help are left intact.
+  function annotate(html) {
+    var stack = [], voids = ['input', 'img', 'br', 'hr', 'meta', 'link', 'path'];
+    return html.replace(/<[^>]*>|[^<]+/g, function (token) {
+      if (token[0] === '<') {
+        var end = /^<\//.test(token), match = token.match(/^<\/?([a-z0-9]+)/i);
+        if (!match) return token;
+        var tag = match[1].toLowerCase();
+        if (end) { for (var i = stack.length - 1; i >= 0; i--) if (stack[i].tag === tag) { stack.length = i; break; } }
+        else if (!voids.includes(tag) && !/\/>$/.test(token)) stack.push({ tag: tag, skip: /term-wrap|term-popover|data-term=/.test(token) || ['textarea', 'option', 'script', 'style', 'svg'].includes(tag), interactive: ['button', 'a', 'summary'].includes(tag) });
+        return token;
+      }
+      if (stack.some(function (r) { return r.skip; })) return token;
+      return token.replace(/シッピングポリシー|返品ポリシー|カテゴリの確度|見込み\/確定|手残り|関税|ポリシー|DDP|DDU|見込み|確定/g, function (word) {
+        var key = ['見込み', '確定'].includes(word) ? '見込み/確定' : word;
+        if (stack.some(function (r) { return r.interactive; })) return '<span class="term-inline" data-term="' + e(key) + '" role="button" tabindex="-1" title="' + e(glossary[key].definition) + '">' + word + '</span>';
+        return term(key, word);
+      });
+    }).replace(/（例）(?:（例）)+/g, '（例）');
+  }
+  window.IdealHelp = { annotate: annotate, term: term, closeTerm: closeTerm, toggleTerm: toggleTerm, knownIssues: knownIssues, results: results, dialog: dialog };
 })();

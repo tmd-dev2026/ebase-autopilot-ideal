@@ -28,7 +28,7 @@
     r.buyerName = ['Alex Example', 'Robin Example'][i]; r.confidence = 92;
     r.unread = true; r.replied = false; r.sent = [];
     Object.defineProperty(r, 'done', { configurable: true, enumerable: true,
-      get: function () { return r.replied; }, set: function (done) { r.replied = done; r.unread = !done; } });
+      get: function () { return r.replied && !r.unread; }, set: function (done) { r.replied = done; r.unread = !done; } });
   });
   [
     ['message-card', 'holo-card', 'Jamie Example', 'Thank you, it arrived safely.', '無事に届いたと連絡しています。', 'Thank you for letting me know.', 92, '配送状況欄：配達完了'],
@@ -39,6 +39,8 @@
   });
   D.incomingOffer = task('offer-figure');
   D.incomingOffer.outcome = '';
+  D.incomingOffer.listingId = D.listings.find(function (r) { return r.product === D.incomingOffer.product && r.state === '出品中'; }).id;
+  D.counterRange = function () { var listing = D.listings.find(function (r) { return r.id === D.incomingOffer.listingId; }); var gross = listing ? listing.gross : 0; return { min: window.IdealCore.mode === '上級' ? 0 : gross * 0.5, max: gross }; };
   Object.defineProperty(D.incomingOffer, 'done', { configurable: true, enumerable: true,
     get: function () { return !!this.outcome; }, set: function (v) { this.outcome = v ? '対応済み' : ''; } });
   D.returnCases = [
@@ -64,17 +66,51 @@
   D.ads = D.products.slice(0, 5).map(function (p, i) {
     return { id: 'ad-' + i, product: p.id, rate: [3, 5, 4, 2, 3][i], spend: [900, 4500, 0, 600, 300][i], sales: [220, 150, 0, 180, 120][i], before: [4200, 3000, null, 2800, 1700][i], on: true };
   });
-  var oldBadges = D.badges;
-  D.badges = function () {
-    var counts = oldBadges.call(D);
-    counts.orders = D.orders.filter(function (r) { return r.state === '発送待ち'; }).length;
-    counts.messages = D.conversations.filter(function (r) { return r.unread; }).length;
-    return counts;
+  // Orders represent earlier sales of separate inventory units; repair rows are new stock.
+  D.orders.forEach(function (o) { o.inventoryId = 'sold-' + o.id; o.listingNote = '販売済みの別在庫。現在の修正対象とは別の商品個体です（例）'; });
+  D.conversations.find(function (r) { return r.id === 'message-delay'; }).product = 'fd-lens';
+  D.conversations.find(function (r) { return r.id === 'message-delay'; }).orderId = 'order-lens';
+  D.conversations.forEach(function (r) { r.reason = r.reason.replace(/。確信度：[^。]+/, ''); });
+  D.categories.push({ id: 'case', icon: 'returns', verb: '対応する', label: '返品・クレーム', explanation: '未完了のケースを確認し購入者へ返信します。' }, { id: 'source', icon: 'orders', verb: '購入者へ連絡', label: '仕入れ不能の注文', explanation: '売れた商品の仕入れ元が終了しています。購入者へ連絡してください。' });
+  D.syncTasks = function () {
+    function link(record, category, done, resolve) {
+      if (D.items.some(function (r) { return r.id === record.id; })) return;
+      var item = { id: record.id, category: category, product: record.product || D.orders.find(function (o) { return o.id === record.orderId; }).product };
+      if (category === 'message') { item = record; item.category = category; }
+      Object.defineProperty(item, 'done', { configurable: true, enumerable: true, get: done, set: resolve }); D.items.push(item);
+    }
+    D.conversations.filter(function (r) { return !r.replied || r.unread; }).forEach(function (r) { link(r, 'message', function () { return r.replied && !r.unread; }, function (v) { r.replied = v; r.unread = !v; }); });
+    D.listings.forEach(function (r) {
+      if (!['要修正', '仕入れ元終了'].includes(r.state) || D.items.some(function (i) { return i.id === r.taskId || i.listingId === r.id; })) return;
+      var item = { id: 'task-' + r.id, listingId: r.id, product: r.product, category: r.state === '要修正' ? 'fix' : 'ended', canFix: 'はい。停止理由を確認してください', effect: '検証が終わるまで出品できません', reason: r.cause };
+      r.taskId = item.id;
+      ['cause', 'next'].forEach(function (key) { Object.defineProperty(item, key, { enumerable: true, get: function () { return r[key]; }, set: function (v) { r[key] = v; } }); });
+      var state = r.state; Object.defineProperty(item, 'done', { enumerable: true, get: function () { return r.state !== state; }, set: function (v) { r.state = v ? 'AI処理済' : state; } }); D.items.push(item);
+    });
+    D.orders.forEach(function (r) {
+      if (r.state === '発送待ち') link(r, 'shipment', function () { return r.state !== '発送待ち'; }, function (v) { r.state = v ? '発送済み' : '発送待ち'; });
+      if (r.sourceEnded) link(r, 'source', function () { return r.state !== '仕入れ待ち' || r.contacted; }, function (v) { r.contacted = v; });
+    });
+    D.returnCases.forEach(function (r) { link(r, 'case', function () { return r.step >= 4 || r.closed; }, function (v) { r.closed = v; }); });
   };
+  D.priority = function (item) {
+    var order = D.orders.find(function (o) { return o.id === item.id; });
+    if (item.category === 'shipment' && order.due < '2026-10-20') return 0;
+    if (item.category === 'case' && !D.returnCases.find(function (r) { return r.id === item.id; }).replied) return 1;
+    if (item.category === 'source' || item.category === 'offer' && A.takeHome(item.gross, item.shipping, item.cost).yen < 0) return 2;
+    if (item.category === 'message') return 3;
+    if (item.category === 'fix') return 4;
+    return 5;
+  };
+  D.active = function () { D.syncTasks(); return D.items.filter(function (r) { return !r.done; }).sort(function (a, b) { return D.priority(a) - D.priority(b) || String((D.orders.find(function (o) { return o.id === a.id; }) || {}).due || '').localeCompare(String((D.orders.find(function (o) { return o.id === b.id; }) || {}).due || '')); }); };
+  D.badges = function () { var c = D.counts(); return { today: c.total, listings: c.fix, messages: c.message, orders: c.shipment + c.source, returns: c.case }; };
+  D.syncTasks();
+  D.ads.forEach(function (ad) { ad.listing = D.listings.find(function (r) { return r.product === ad.product && r.state === '出品中'; }); ad.on = !!ad.listing; });
   // Only prepare() issues a one-use confirmation ticket. The exact previewed values are frozen.
-  var tickets = new WeakSet();
+  var tickets = new WeakSet(), pendingOffers = new Map();
   D.prepareAftersale = function (kind, id, value) {
     var row, impact, text;
+    if (['message', 'case-message', 'watcher-offer', 'counter', 'accept'].includes(kind) && !D.connection.connected) { D.lastError = '送信できません：eBay連携が切断中です'; return null; }
     if (kind === 'ship') {
       row = D.orders.find(function (r) { return r.id === id; });
       var valid = A.tracking(value);
@@ -84,7 +120,7 @@
     } else if (kind === 'message' || kind === 'case-message') {
       row = (kind === 'message' ? D.conversations : D.returnCases).find(function (r) { return r.id === id; });
       value = String(value || '').trim();
-      if (!row || !value) return null;
+      if (!row || !value || value.length > 2000) return null;
       text = '宛先：' + row.buyerName + '。以下の文面を送信します。送信後は取り消せません。';
     } else if (kind === 'refund') {
       row = D.returnCases.find(function (r) { return r.id === id; });
@@ -97,6 +133,9 @@
     } else if (kind === 'watcher-offer') {
       row = D.watchers.find(function (r) { return r.id === id; });
       impact = row && A.offer(row, Number(value));
+      if (D.sentOffers.some(function (o) { return o.product === row.product && o.outcome === '返答待ち'; })) return null;
+      var offerRules = window.IdealChecks.evaluate(Object.assign({}, row.listing, { gross: impact && impact.gross }), D.settings);
+      if (Number(value) > D.settings.discountLimit || offerRules.avoided || offerRules.discountExceeded) { D.lastError = '判断軸の割引上限または避ける商品に該当するため送れません'; return null; }
       if (!impact || !impact.takeHome || impact.takeHome.yen < 0 || !row.watchers || !row.listing || row.listing.state !== '出品中') return null;
       value = impact.gross;
       text = 'ウォッチ' + row.watchers + '人にオファーを送ります・送信後は取り消せません（例）';
@@ -104,24 +143,28 @@
       row = D.incomingOffer;
       if (row.id !== id || row.done) return null;
       value = kind === 'counter' ? Number(value) : row.gross;
+      var range = D.counterRange(), listed = range.max;
+      if (kind === 'counter' && (value <= 0 || value > listed || value < range.min)) { D.lastError = '再提案価格は出品価格の50〜100%で入力してください（上級でも出品価格以下）'; return null; }
       impact = A.takeHome(value, row.shipping, row.cost);
       if (kind !== 'decline' && (!impact || impact.yen < 0)) return null;
       text = ({ accept: 'この価格で受けます', decline: 'この提案を断ります', counter: 'この価格で条件を出します' })[kind] + '。対象1件・送信後は取り消せません。';
     } else return null;
-    var ticket = Object.freeze({ kind: kind, id: id, value: value, text: text, impact: impact, row: row });
+    if (kind === 'watcher-offer' && pendingOffers.has(row.product)) return null;
+    var ticket = Object.freeze({ kind: kind, id: id, audience: kind === 'watcher-offer' ? row.product : null, value: value, text: text, impact: impact, row: row });
     tickets.add(ticket);
+    if (kind === 'watcher-offer') pendingOffers.set(row.product, ticket);
     return ticket;
   };
   D.executeAftersale = function (ticket) {
     if (!ticket || !tickets.has(ticket)) return null;
-    tickets.delete(ticket);
+    tickets.delete(ticket); pendingOffers.delete(ticket.audience);
     var row = ticket.row, kind = ticket.kind, value = ticket.value;
     // Revalidate changing balances and states before applying a confirmed action.
     var check = D.prepareAftersale(kind, ticket.id, kind === 'watcher-offer' ? row.discount : value);
     if (!check || check.value !== value || check.text !== ticket.text || JSON.stringify(check.impact) !== JSON.stringify(ticket.impact)) return null;
-    tickets.delete(check);
-    var snapshot = { state: row.state, tracking: row.tracking, unread: row.unread, replied: row.replied,
-      sent: row.sent && row.sent.slice(), outcome: row.outcome, refunded: row.refunded, step: row.step };
+    tickets.delete(check); pendingOffers.delete(ticket.audience);
+    var fields = kind === 'ship' ? ['state', 'tracking'] : kind === 'message' ? ['sent', 'unread', 'replied'] : kind === 'case-message' ? ['sent', 'unread', 'replied', 'step'] : kind === 'refund' ? ['refunded', 'step'] : ['outcome'];
+    var snapshot = {}; fields.forEach(function (key) { snapshot[key] = Array.isArray(row[key]) ? row[key].slice() : row[key]; });
     var order, refundBefore, log;
     if (kind === 'ship') { row.tracking = value; row.state = '発送済み'; }
     else if (kind === 'message' || kind === 'case-message') { row.sent.push(value); row.unread = false; row.replied = true; if (kind === 'case-message') row.step = Math.max(row.step, 3); }
@@ -132,14 +175,16 @@
       log = { id: 'sent-' + (D.sentOffers.length + 1), product: row.product, gross: value, count: row.watchers, outcome: '返答待ち', date: '2026-10-20' };
       D.sentOffers.push(log);
     } else row.outcome = { accept: '承諾', decline: '辞退', counter: '条件を送信' }[kind];
-    var undone = false;
+    var undone = false, after = JSON.stringify(fields.map(function (k) { return row[k]; }));
     return function () {
-      if (undone) return;
+      if (undone) return false;
+      if (after !== JSON.stringify(fields.map(function (k) { return row[k]; })) || (order && order.refund !== refundBefore + value)) { D.lastError = '後の操作があるため元に戻せません'; return false; }
       undone = true;
       Object.keys(snapshot).forEach(function (key) { if (snapshot[key] !== undefined) row[key] = snapshot[key]; else delete row[key]; });
       if (order) order.refund = refundBefore;
       if (log) D.sentOffers.splice(D.sentOffers.indexOf(log), 1);
+      return true;
     };
   };
-  D.cancelAftersale = function (ticket) { if (ticket) tickets.delete(ticket); };
+  D.cancelAftersale = function (ticket) { if (ticket) { tickets.delete(ticket); pendingOffers.delete(ticket.audience); } };
 })();

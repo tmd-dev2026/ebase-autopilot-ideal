@@ -24,7 +24,7 @@ for (const [type, value, ids] of [['category', '電池内蔵', ['l1', 'd1']], ['
 assert.equal(A.preview(data, 'discountLimit', 40).text, '影響なし');
 assert.deepEqual(A.preview(data, 'discountLimit', 10).ids, ['l1']);
 for (const [key, value] of [['duties', 'DDP'], ['shipping', ''], ['returns', ''], ['payment', ''], ['tone', '簡潔']]) {
-  assert.deepEqual(A.preview(data, key, value).ids, ['d1']);
+  assert.deepEqual(A.preview(data, key, value).ids, key === 'duties' ? ['l1', 'l2', 'd1'] : key === 'tone' ? [] : ['d1']);
 }
 assert.equal(A.save(data, 'marginFloor', 20, ''), null);
 assert.equal(A.save(data, 'marginFloor', 20, 'ab'), null);
@@ -34,7 +34,7 @@ assert.equal(data.settings.marginFloor, 20);
 assert.equal(data.decisions[0].from, 10); assert.equal(data.decisions[0].to, 20);
 assert.match(data.decisions[0].what, /10 → 20/); assert.equal(data.decisions[0].who, 'あなた');
 assert.ok(data.decisions[0].date); assert.equal(undo(), true);
-assert.equal(data.settings.marginFloor, 10); assert.equal(data.decisions.length, 0); assert.equal(undo(), false);
+assert.equal(data.settings.marginFloor, 10); assert.equal(data.decisions.length, 2); assert.match(data.decisions[1].what, /取り消し/); assert.equal(data.decisions[1].undoOf, data.decisions[0].id); assert.equal(undo(), false);
 const draft = { ...data.drafts[0], description: 'Description', specifics: { Brand: 'Example', Type: 'Example' }, confidence: 92, photos: [1, 2, 3] };
 const price = () => V.validateListing(draft, data.settings).checks.find(c => c.id === 'price');
 assert.equal(price().status, 'ok');
@@ -46,7 +46,5 @@ assert.equal(price().status, 'block'); assert.equal(V.validateListing(draft, dat
 console.log('PASS criteria: exact impact sets, all setting types, positive controls, reasons, before/after, undo and shared margin validation');
 
 impact = A.preview(data, 'tone', '簡潔');
-assert.equal(impact.affectedListings, 0);
-assert.equal(impact.affectedDrafts, 1);
-assert.match(impact.text, /出品 0 件・下書き 1 件が変わります（出品2件・下書き1件のうち/);
-assert.equal(impact.count, impact.affectedListings + impact.affectedDrafts);
+assert.equal(impact.count, 0);
+assert.match(impact.text, /返信案 0 件/);

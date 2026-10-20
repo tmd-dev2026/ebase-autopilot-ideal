@@ -14,7 +14,8 @@
     if (!c.takeHome) return { blocked: true, reason: '— 計算できません。費用を確認してください。' };
     if (A.avoided(row, data.settings.avoid)) return { blocked: true, reason: '判断軸で避ける設定です。判断軸を見直してください。' };
     if (c.takeHome.yen < 0) return { blocked: true, reason: '⚠ 赤字のため取り込めません。費用を見直してください。' };
-    var floor = c.margin < data.settings.marginFloor;
+    var evaluated = V.evaluate(Object.assign({}, row, { shipping: c.shipping }), data.settings);
+    var floor = evaluated.warnings.includes('利益率が下限未満');
     return { blocked: floor && !(mode === '上級' && String(reason || '').trim().length >= 3), override: floor,
       reason: floor ? '利益率の下限未満。価格・費用または判断軸を確認してください。' : '' };
   }
@@ -28,7 +29,7 @@
     var item = data.candidates.splice(index, 1)[0];
     return function () { if (!data.candidates.some(function (c) { return c.id === id; })) data.candidates.splice(index, 0, item); };
   }
-  function imported(data, row) { return data.drafts.find(function (d) { return d.sourceId === row.id; }); }
+  function imported(data, row) { return data.drafts.concat(data.listings).find(function (d) { return d.sourceId === row.id || d.product === row.product; }); }
   function importRow(data, row, mode, reason) {
     if (imported(data, row)) return { status: '重複', reason: 'すでに取り込み済み', draft: imported(data, row) };
     var check = gate(data, row, mode, reason);
@@ -37,9 +38,9 @@
     var draft = { id: 'source-' + row.id, sourceId: row.id, product: row.product || row.id, sourceProduct: p,
       title: p.ai ? p.ai.titleEn : row.name, description: p.ai ? p.ai.descriptionEn.join('\n') : '',
       specifics: p.ai ? Object.fromEntries(p.ai.specifics) : {}, required: ['Brand', 'Type'],
-      category: row.category, confidence: p.ai ? 92 : 0, candidates: [row.category],
+      category: row.category, ruleTags: row.ruleTags || [], confidence: p.ai ? 92 : 0, candidates: [row.category],
       photos: (p.images || []).slice(), risks: row.risks.slice(), gross: row.gross,
-      shipping: costs(row).shipping, cost: row.cost, condition: row.condition, brand: row.brand };
+      buyerShipping: 0, domestic: row.domestic, international: row.international, duty: row.duty, shipping: costs(row).shipping, cost: row.cost, condition: row.condition, brand: row.brand };
     data.drafts.push(draft);
     var candidate = data.candidates.find(function (c) { return c.id === row.id; });
     if (candidate) candidate.state = '取り込み済み';

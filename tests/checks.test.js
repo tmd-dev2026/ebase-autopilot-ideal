@@ -27,7 +27,7 @@ for (const key of ['gross', 'shipping', 'cost']) for (const value of [0, null, u
   const unknown = fresh(); unknown[key] = value;
   assert.equal(check(unknown, 'price').status, 'unknown'); assert.match(check(unknown, 'price').reason, /— 計算できません/); assert.equal(V.validateListing(unknown, settings).canPublish, false);
 }
-d = fresh(); d.duplicate = true; assert.equal(check(d, 'duplicate').status, 'warn');
+d = fresh(); d.duplicate = true; assert.equal(check(d, 'duplicate').status, 'block');
 for (const [key, label] of [['shipping', '配送'], ['returns', '返品'], ['payment', '支払い']]) {
   const s = { ...settings, [key]: '' }; assert.equal(check(d, 'policies', s).status, 'block'); assert.ok(check(d, 'policies', s).reason.includes(label));
 }

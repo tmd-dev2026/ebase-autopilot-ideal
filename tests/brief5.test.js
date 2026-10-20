@@ -39,7 +39,7 @@ for (const [route, count] of Object.entries(w.IdealData.badges())) {
   assert.match(badge[1], new RegExp('aria-label="[^" ]+ ' + count + ' 件（例）"'));
   assert.match(badge[1], new RegExp('title="[^" ]+ ' + count + ' 件（例）"'));
 }
-assert.match(nav, /aria-label="発送待ち 2 件（例）"/);
+assert.match(nav, /aria-label="要対応 3 件（例）"/);
 const header = node('header').innerHTML;
 assert.match(header, /class="phone-brand" data-action="legend"[^>]*>[\s\S]*class="concept-pill">構想\(未実装\)/);
 for (const action of ['search', 'notifications', 'support', 'display']) {
@@ -57,7 +57,7 @@ for (const mode of ['ふだん', '上級']) {
   const incomingChip = w.IdealMarks.component('incomingOffer');
   assert.equal(today.split(incomingChip).length - 1, 1);
   assert.match(incomingChip, /<span aria-hidden="true">◇<\/span> 将来/);
-  assert.doesNotMatch(today.replace(incomingChip, ''), /⚒|✉|◇|▣|⊘|undefined/);
+  assert.doesNotMatch(today.replace(incomingChip, '').replace('◆改 ✦新 ◇将来 は試作の印です', ''), /⚒|✉|◇|▣|⊘|undefined/);
   for (const cat of w.IdealData.categories) assert.ok(today.includes(w.IdealIcons(cat.icon)));
 }
 const css = fs.readFileSync('assets/css/app.css', 'utf8').replace(/\s*([{}:;,])\s*/g, '$1');
@@ -68,7 +68,8 @@ assert.match(css, /\.make-grid,\.field-grid\{[^}]*gap:12px;align-items:start/);
 assert.match(css, /#import-example,#edit-content,#policy-edit\{display:grid;gap:12px/);
 assert.match(css, /\.bulk-bar label\{[^}]*gap:4px;font-size:12px/);
 assert.match(css, /\.button-small\{height:32px;min-height:32px;padding:0 8px/);
-assert.doesNotMatch(css, /\.header-row\{[^}]*flex-wrap:wrap/);
+assert.doesNotMatch(css.split('@media')[0], /\.header-row\{[^}]*flex-wrap:wrap/);
+assert.match(css, /@media\s*\(max-width:1023px\)\{\.header-row\{flex-wrap:wrap/); // Phone text controls can wrap without overflow.
 assert.match(css, /\.concept-pill\{[^}]*height:24px/);
 assert.match(css, /\.phone-brand\{[^}]*min-height:44px/);
 console.log('PASS BRIEF5: navigation and in-page focus, numeric accessible badges, create columns, local category icons and responsive density');

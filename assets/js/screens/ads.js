@@ -8,7 +8,8 @@
       U.heading('広告の効果', '広告費を引く前と後を比べ、続けるか判断します。') +
       '<p>広告への売上の帰属データ ' + window.IdealMarks.chip('現行') + ' → 手残りで判断 ' + window.IdealMarks.chip('改') + '。数値はすべて例です。売上への効果は保証できません。</p>' +
       '<table class="after-table"><caption>広告一覧（例）</caption><thead><tr><th>商品</th><th>広告率・費用</th><th>広告経由売上</th><th>手残り（広告前 → 広告後）</th><th>効果の判定・稼働</th></tr></thead><tbody>' + D.ads.map(function (r, i) {
-        return '<tr' + (C.mode === 'はじめて' && i === 0 ? ' class="next-step"' : '') + '><td>' + U.product(r) + '</td><td>' + r.rate + '%（例） · ' + C.money(r.spend) + '</td><td>' + C.money(r.sales * 155) + '</td><td>' + U.profit(r.before) + ' → ' + U.profit(r.before === null ? null : r.before - r.spend) + '</td><td><div class="ad-controls"><span class="badge-status" data-status="' + (A.effect(r) === '効いている' ? 'active' : A.effect(r) === '赤字になっている' ? 'error' : 'draft') + '">' + A.effect(r) + '</span><button class="switch" role="switch" aria-checked="' + r.on + '" aria-label="' + C.escape(D.products.find(function (p) { return p.id === r.product; }).name) + 'の広告" data-ad="' + r.id + '"><span class="switch-track" aria-hidden="true"></span>' + (r.on ? 'ON・稼働中' : 'OFF・停止中') + '</button></div><p class="ad-impact' + (toggled[r.id] ? ' is-visible' : '') + '">' + impact + '</p>' + '</td></tr>';
+        var active = r.listing && r.listing.state === '出品中';
+        return '<tr' + (C.mode === 'はじめて' && i === 0 ? ' class="next-step"' : '') + '><td>' + U.product(r) + '</td><td>' + r.rate + '%（例） · ' + C.money(r.spend) + '</td><td>' + C.money(r.sales * 155) + '</td><td>' + U.profit(r.before) + ' → ' + U.profit(r.before === null ? null : r.before - r.spend) + '</td><td><div class="ad-controls"><span class="badge-status" data-status="' + ((active ? A.effect(r) : '出品停止中') === '効いている' ? 'active' : (active ? A.effect(r) : '出品停止中') === '赤字になっている' ? 'error' : 'draft') + '">' + (active ? A.effect(r) : '出品停止中') + '</span><button class="switch" role="switch" aria-checked="' + (r.on && active) + '" aria-label="' + C.escape(D.products.find(function (p) { return p.id === r.product; }).name) + 'の広告" data-ad="' + r.id + '"><span class="switch-track" aria-hidden="true"></span>' + (r.on && active ? 'ON・稼働中' : 'OFF・停止中') + '</button></div><p class="ad-impact' + (toggled[r.id] ? ' is-visible' : '') + '">' + impact + '</p>' + '</td></tr>';
       }).join('') + '</tbody></table></section>' + U.end('ads');
   }
   function bind(main) {
@@ -16,7 +17,7 @@
       var b = event.target.closest('[data-ad]');
       if (!b) return;
       var row = D.ads.find(function (r) { return r.id === b.dataset.ad; });
-      if (!row) return;
+      if (!row || !row.listing || row.listing.state !== '出品中') { window.IdealShell.toast('出品中の商品だけ広告を再開できます'); return; }
       var before = row.on;
       row.on = !row.on;
       toggled[row.id] = true;

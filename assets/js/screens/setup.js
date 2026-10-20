@@ -4,6 +4,7 @@
   var effects = ['出品・在庫監視・注文同期', '下書きの配送・返品・支払い条件', '販売者情報の確認', '商品の安全情報の確認', '最初の出品内容の確認'];
   var opened = null;
   function render() {
+    var deep = Number(window.location.hash.split('/')[2]); if (Number.isInteger(deep) && deep >= 0 && deep < D.steps.length) opened = deep;
     var first = D.steps.findIndex(function (s) { return !s[1]; });
     return C.pageHeader('eBay連携と初期設定') + D.connectionWarning() + '<section class="card"><h2>診断と影響の先出し ' + M.component('setupDiagnostics') + '</h2><p>接続・手順・診断はすべて例です。実際の eBay の動作を示すものではありません。</p>' +
       '<label class="demo-switch"><input type="checkbox" role="switch" aria-checked="' + (!D.connection.connected) + '" id="disconnect-demo"' + (!D.connection.connected ? ' checked' : '') + '>試作用の切替：連携が切れた場合の表示を見る</label>' +
@@ -21,7 +22,7 @@
     };
     main.onclick = function (event) {
       var b = event.target.closest('button'); if (!b) return;
-      if (b.dataset.setup !== undefined) opened = Number(b.dataset.setup);
+      if (b.dataset.setup !== undefined) { opened = Number(b.dataset.setup); if (opened === 1) { window.location.hash = '#/criteria/shipping'; return; } }
       if (b.dataset.completeStep !== undefined) {
         var index = Number(b.dataset.completeStep), before = D.steps[index][1];
         D.completeStep(index); opened = null;

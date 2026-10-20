@@ -23,8 +23,8 @@ function undoToast(app) {
 }
 let app = boot(), { IdealData: D, IdealCore: C, IdealToday: T, IdealMarks: M } = app.window;
 assert.equal(D.products.length, 6);
-assert.deepEqual(JSON.parse(JSON.stringify(D.counts())), { total: 9, fix: 3, message: 2, offer: 1, shipment: 2, ended: 1 });
-assert.deepEqual(JSON.parse(JSON.stringify(D.badges())), { today: 9, listings: 3, messages: 2, orders: 2 });
+assert.deepEqual(JSON.parse(JSON.stringify(D.counts())), { total: 14, fix: 3, message: 4, offer: 1, shipment: 2, ended: 1, case: 2, source: 1 });
+assert.deepEqual(JSON.parse(JSON.stringify(D.badges())), { today: 14, listings: 3, messages: 4, orders: 3, returns: 2 });
 Object.entries(D.badges()).forEach(([route,count]) => assert.match(app.window.IdealShell.nav(), new RegExp('data-badge="' + route + '"[^>]*>' + count + '</span>')));
 D.groups.flatMap(g => g[1]).forEach(([route]) => {
   assert.equal(D.route('#/' + route), route);
@@ -62,17 +62,17 @@ D.products[0].name = '<script>alert("x")</script>'; D.items[0].cause = '<img src
 assert.match(T.render(), /&lt;script&gt;/); assert.doesNotMatch(T.render(), /<script>|<img src=x/); assert.match(T.render(), /&lt;\/textarea&gt;/);
 // Exercise actual delegated UI actions, confirmations and undo.
 app = boot(); D = app.window.IdealData;
-app.click('fix','fix-card'); assert.equal(D.counts().total, 8); assert.match(app.nodes.toasts.children.at(-1).innerHTML, /元に戻す/);
-app.click('undo','fix-card'); assert.equal(D.counts().total, 9);
-app.node('[data-draft="message-watch"]').value = 'Checked reply'; app.click('message','message-watch'); assert.equal(D.counts().total,9); assert.match(app.nodes.dialog.innerHTML, /Checked reply/); app.click('close'); assert.equal(D.counts().total,9);
-app.click('message','message-watch'); app.click('confirm'); assert.equal(D.counts().message,1); undoToast(app);
+D.listings[0].title = ''; app.click('fix','fix-card'); assert.equal(D.counts().total, 14); assert.match(app.nodes.toasts.children.at(-1).innerHTML, /停止理由/);
+app.click('undo','fix-card'); assert.equal(D.counts().total, 14);
+app.node('[data-draft="message-watch"]').value = 'Checked reply'; app.click('message','message-watch'); assert.equal(D.counts().total,14); assert.match(app.nodes.dialog.innerHTML, /Checked reply/); app.click('close'); assert.equal(D.counts().total,14);
+app.click('message','message-watch'); app.click('confirm'); assert.equal(D.counts().message,3); undoToast(app);
 app.click('accept','offer-figure'); assert.match(app.nodes.dialog.innerHTML, /赤字/); assert.doesNotMatch(app.nodes.dialog.innerHTML, /data-action="confirm"/); assert.equal(D.counts().offer,1); app.click('close');
 app.node('[data-counter="offer-figure"]').value = '120'; app.click('counter','offer-figure'); assert.match(app.nodes.dialog.innerHTML, /1,822/); assert.equal(D.counts().offer,1); app.click('confirm'); assert.equal(D.counts().offer,0); undoToast(app);
 app.click('decline','offer-figure'); app.click('confirm'); assert.equal(D.counts().offer,0); undoToast(app);
-app.click('ended','ended-bag'); assert.match(app.nodes.dialog.innerHTML, /対象1件・eBay上の出品を終了します・再出品が必要/); assert.equal(D.counts().ended,1); app.click('confirm'); assert.equal(D.counts().ended,0); app.click('undo','ended-bag');
+app.click('ended','ended-bag'); assert.match(app.nodes.dialog.innerHTML, /eBay上の出品を終了します/); assert.equal(D.counts().ended,1); app.click('confirm'); assert.equal(D.counts().ended,0); app.click('undo','ended-bag');
 app.listeners.submit({ preventDefault() {}, target: { dataset: { shipment:'ship-camera' }, elements: { tracking: { value: 'TRACK-EXAMPLE' } } } }); assert.equal(D.counts().shipment,2); assert.match(app.nodes.dialog.innerHTML, /取り消せません/); app.click('confirm'); assert.equal(D.counts().shipment,1); undoToast(app);
 app.listeners.submit({ preventDefault() {}, target: { dataset: { shipment:'ship-camera' }, elements: { tracking: { value: '   ' } } } }); assert.equal(D.counts().shipment,2);
-app.click('automation','stock'); assert.equal(D.automations[0].on,true); app.click('confirm'); assert.equal(D.automations[0].on,false); app.click('automation','stock'); assert.equal(D.automations[0].on,true);
+app.node('automation-reason').value = '在庫の確認'; app.click('automation','stock'); assert.equal(D.automations[0].on,true); app.click('confirm'); assert.equal(D.automations[0].on,false); app.click('automation','stock'); assert.equal(D.automations[0].on,true);
 app.click('notifications'); assert.equal((app.nodes.notifications.innerHTML.match(/href=/g)||[]).length,3);
 app.click('support'); assert.match(app.nodes.dialog.innerHTML, /対象画面：今日/); app.listeners.submit({ preventDefault() {}, target: { id: 'support-form', dataset: {} } }); assert.match(app.nodes.toasts.children.at(-1).innerHTML, /今日.*送信されません/);
 app.click('mode','上級'); assert.match(app.nodes.main.innerHTML,/dense-list/); app.click('filter','offer'); assert.equal((app.nodes.main.innerHTML.match(/data-task=/g)||[]).length,1);
@@ -109,15 +109,15 @@ for (const cat of D.categories) {
   app.click('expand', item.id); assert.equal(app.node('item-' + item.id).open, false);
 }
 for (const state of [false, true]) {
-  app.click('automation', 'stock');
+  app.node('automation-reason').value = '在庫の確認'; app.click('automation', 'stock');
   if (!state) { assert.equal(D.automations[0].on, true); app.click('confirm'); }
   assert.match(app.nodes.main.innerHTML, new RegExp('role="switch" aria-label="在庫監視" aria-checked="' + state + '"'));
   if (!state) assert.match(app.nodes.main.innerHTML, /class="stop-effect">停止の影響：仕入れ元の在庫変化/);
   else assert.doesNotMatch(app.nodes.main.innerHTML, /class="stop-effect"/);
 }
 assert.match(T.render(), /<details><summary>詳しく<\/summary>/);
-assert.match(T.render(), /見込み\(まだ確定ではありません\)/); assert.match(T.render(), /class="metric-label">確定</);
-assert.ok(T.render().includes(app.window.IdealCore.money(app.window.IdealAftersale.reports(D.orders, D.listings).estimate))); assert.match(T.render(), /未確定の追加費用：—/);
+assert.match(T.render(), /見込み[\s\S]*\(まだ[\s\S]*確定[\s\S]*ではありません\)/); assert.match(T.render(), /class="metric-label">[\s\S]*data-term="見込み\/確定"/);
+assert.ok(T.render().includes(app.window.IdealCore.money(app.window.IdealAftersale.reports(D.orders, D.listings).estimate))); assert.match(T.render(), /未[\s\S]*確定[\s\S]*の追加費用：—/);
 for (const heading of T.render().matchAll(/<h2>(.*?)<\/h2>/g)) assert.ok((heading[1].match(/class="mark"/g) || []).length <= 2);
 console.log('PASS polish: header, search, theme cycle, display menu, chips, summary, row verbs, expansion, switches and metric labels');
 

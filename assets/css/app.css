@@ -1604,3 +1604,40 @@ button.term { display: inline; min-height: 32px; padding: 2px 4px; border: 0; bo
   .setup-row > p, .setup-row > div { grid-column: 2; }
   .setup-row > button { grid-column: 3; grid-row: 1 / span 2; }
 }
+/* BRIEF10: feedback occupies its own document space, never covers an action/confirm. */
+.toasts { position: static; max-width: 100%; display: grid; gap: 8px; padding: 8px 16px 80px; margin-left: var(--sidebar-width, 240px); }
+.toast { max-width: 100%; }
+#dialog button + button, .impact-preview button + button { margin-left: 8px; }
+.page-header, .after-screen h2, .research-heading { min-width: 0; flex-wrap: wrap; }
+h1, h2, h3 { writing-mode: horizontal-tb; word-break: normal; overflow-wrap: break-word; }
+.term-inline { text-decoration: underline dotted; cursor: help; }
+:focus-visible { outline: 2px solid var(--primary); outline-offset: 3px; }
+@media (max-width: 1023px) {
+  .listings-table, .listings-table tbody, .listings-table tr, .listings-table td { display: block; width: 100%; }
+  .listings-table thead { display: none; }
+  .listings-table tr { position: static; height: auto; padding: 12px; border: 1px solid var(--border); margin-bottom: 12px; }
+  .listings-table td { position: static; min-height: 0; padding: 6px 0; overflow-wrap: anywhere; }
+  .listing-product, .task-copy { min-width: 0; }
+  .task-facts, .task[open] .task-facts, .product-name { white-space: normal; overflow: visible; text-overflow: clip; -webkit-line-clamp: unset; }
+  .offer-controls, .offer-row, .watcher-row { flex-wrap: wrap; min-width: 0; }
+  .loss { white-space: normal; overflow: visible; }
+  .after-table td[data-label]::before { content: attr(data-label) '：'; display: inline; font-weight: 600; }
+  .after-screen h2, .card h2 { display: block; width: auto; min-width: 0; }
+  button, .button-small, .chip, .term, .term-inline, .listings-table td > button, .final-bar button, a { min-height: 44px; min-width: 44px; }
+  a, .term-inline { display: inline-flex; align-items: center; padding: 4px; }
+  .display-button, .phone-label { display: inline-flex; align-items: center; width: auto; }
+  .support-button { width: auto; }
+  .toasts { margin-left: 0; }
+}
+.bulk-bar { position: sticky; bottom: 72px; z-index: 2; background: var(--card); display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+@media (min-width: 1024px) { .bulk-bar { bottom: 8px; } }
+/* The bulk controls precede the table and remain reachable while reviewing rows. */
+.bulk-bar { top: 64px; bottom: auto; }
+@media (max-width: 1023px) { .bulk-bar { top: 56px; max-height: 45vh; overflow: auto; } }
+@media (max-width: 1023px) {
+  .header-row { flex-wrap: wrap; }
+  .header-actions { display: flex; flex-wrap: wrap; flex: 1 1 auto; justify-content: flex-end; min-width: 0; }
+  .support-button, .display-button { border-radius: 6px; padding: 4px 8px; height: auto; white-space: nowrap; }
+  .phone-label { white-space: nowrap; }
+}
+.workspace > .toasts { margin-left: 0; padding: 8px 12px; max-width: 1400px; margin-right: auto; }

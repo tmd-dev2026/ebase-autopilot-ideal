@@ -51,7 +51,7 @@ assert.match(css, /\.metric\.estimated\{border-style:dashed/);
 assert.match(css, /\.metric\.confirmed\{border-style:solid/);
 assert.match(css, /\.task img\{width:40px;height:40px/);
 assert.match(css, /\.desktop-preferences,\.desktop-label\{display:none/);
-assert.equal((sources.match(/data-action="legend"/g) || []).length, 3); // Desktop badge, phone logo/legend area, and footer only.
+assert.equal((sources.match(/data-action="legend"/g) || []).length, 4); // Header, phone, footer and each screen's page header.
 for (const block of tokenBlocks) {
   const colors=Object.fromEntries([...block[1].matchAll(/--([\w-]+):(#\w{6})/g)].map(m=>[m[1],m[2]]));
   for (const bg of ['primary','primary-hover']) assert.ok(ratio(colors['primary-foreground'],colors[bg])>=4.5);
