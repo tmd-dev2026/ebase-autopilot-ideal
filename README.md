@@ -6,11 +6,11 @@
 
 ## Stage 1：シェルと「今日」
 
-`index.html` をそのままブラウザで開けます（file:// 対応）。GitHub Pagesでもビルド不要・相対パスで動きます。外部通信はありません。全メニューのルートを用意し、「今日」「作る」「出品管理」以外は次段階の明示的な仮画面です。
+`index.html` をそのままブラウザで開けます（file:// 対応）。GitHub Pagesでもビルド不要・相対パスで動きます。外部通信はありません。全メニューのルートを用意し、「今日」「作る」「出品管理」「注文・発送」「メッセージ」「返品とクレーム」「ウォッチャーとオファー」「広告」「収益とレポート」を実装済みです。その他は次段階の明示的な仮画面です。
 
 「今日」は要修正3件・未返信2件・オファー1件・発送待ち2件・仕入れ元終了1件の例から開始します。確認、追跡入力、処理、元に戻す、自動処理ON/OFFを試せます。赤字の承諾・再提案は止めます。メッセージ・価格提案・取り下げは実行前に確認します。処理状態は再読み込みで初期化され、モードとテーマだけ保存します（保存できない環境でも動作）。為替は ¥155 / $1（例）。
 
-商品は既存の6件と写真を参照し、変更していません。データ・件数は `assets/js/data.js`、試作の印と対応説明は `assets/js/marks.js` に集約しています。スマホは下タブと「もっと」、デスクトップは常時表示の作業順メニューです。上級では j / k で項目移動、Enterで開閉、Tabで項目内の操作へ移動します。? で操作説明を開きます。
+商品は既存の6件と写真を参照し、変更していません。データ・件数は `assets/js/data.js` と `assets/js/data-aftersale.js`、試作の印と対応説明は `assets/js/marks.js` に集約しています。スマホは下タブと「もっと」、デスクトップは常時表示の作業順メニューです。上級では j / k で項目移動、Enterで開閉、Tabで項目内の操作へ移動します。? で操作説明を開きます。
 
 検証（Nodeのみ・依存なし）：
 
@@ -56,9 +56,23 @@ controls and typography use the compact 13/14/16px scale. Listing states map
 to the six real status styles, with the existing warning labels retained.
 Data and workflows remain session-local and unchanged.
 
-On narrow phones the full brand and concept chip occupy the first header row;
-search, notifications, help entry points and display settings occupy the second
-row to retain readable labels and 44px touch targets. Mode/theme/keyboard help
+After BRIEF5, phones use one compact header row with the brand/legend area,
+search, notifications, help and display settings, retaining 44px touch targets. Mode/theme/keyboard help
 remain available in Display. Browser screenshots, actual overflow at 360–1440px,
 and rendered contrast/focus behavior have not been verified in this pass.
 `tests/reskin.test.js` adds structural checks across all 15 routes and 3 modes.
+
+
+## Stage 3：売れたあと・改善（BRIEF6）
+
+注文・発送、メッセージ、返品とクレーム、ウォッチャーとオファー、広告、収益とレポートを実装しました。注文6件、会話5件、ケース2件、ウォッチャー6行、広告5行を同じ6商品の写真で表示します。今日の発送・未返信・受信オファーと各画面は同じレコードを参照し、処理・元に戻すでメニューバッジも更新します。
+
+追跡番号は共通の入力部品・保存先・検証を使い、発送登録前に通知と取り消せない影響を確認します。英語の原文はそのまま表示し、41%の返信案は人の確認を求めます。メッセージは宛先と実際に送る文面を確認してから送信します。上級の受信箱は j/k・Enter・r に対応します。返金は金額と返金後の手残りを表示した後、独立した明示ボタンでダミーデータだけを更新します。実際の返金APIは将来です。
+
+ウォッチャーは出品管理の価格・費用・掲載状態に連動します。出品中でないもの、赤字・不明値・ウォッチャー0人への送信は止めます。割引は元の出品価格を変更せず、送信ログに記録します。広告スイッチは表示への影響を明示し、元に戻せます。
+
+集計期間は2026年10月19〜25日、期限判定日は10月20日という固定の例です。確定は期間内の完了注文の実費と返金額から計算し、未完了は合計から除きます。見込みは出品中の各商品の手残り×販売割合25%（例）。送料比較は期間内の全注文を表示し、実送料が判明した分だけ差額を合計します。仕入れ待ち注文の実送料は不明（—）です。返金による手数料の返還は想定せず、送料・仕入れ値も残る前提を明示しています。今日の週次数値にも同じ集計関数を使います。
+
+`aftersale.js` はDOMに依存しない計算・検証、`data-aftersale.js` は共有レコードと一度だけ実行できる確認処理、`aftersale-ui.js` は共通表示・確認部品です。`tests/aftersale.test.js` と `tests/stage3.test.js` で境界値、確認なしの操作禁止、変更された影響の再確認、両画面からの操作・取り消し、HTMLエスケープ、キーボード操作、集計の一致を検証します。旧テストは新しい実装済みルート、発送の確認、計算された週次数値に合わせて更新しています。
+
+ブラウザは使用していません。実表示・フォーカス・読み上げ・タップ・360〜1440pxの横あふれ・ライト/ダークの視覚確認は未検証です。外部接続・コミット・公開は行っていません。

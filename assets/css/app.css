@@ -1409,3 +1409,126 @@ input:not([type="checkbox"]), select { height: 36px; }
     grid-template-columns: 1fr;
   }
 }
+
+/* Stage 3 uses the same compact cards and status vocabulary. */
+.after-screen { min-width: 0; }
+.after-screen .card { margin-bottom: 8px; }
+.after-row { padding: 12px 0; border-bottom: 1px solid var(--border-subtle); }
+.after-row:last-child { border-bottom: 0; }
+.after-screen label, [data-shipment] label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin: 12px 0;
+  font-size: 12px;
+  font-weight: 500;
+}
+.after-screen input, .after-screen textarea, [data-shipment] input { width: 100%; min-width: 0; }
+.after-screen textarea { min-height: 96px; resize: vertical; }
+.after-screen pre, .after-screen blockquote, .impact-preview pre { white-space: pre-wrap; overflow-wrap: anywhere; }
+.after-screen button { margin: 4px 4px 4px 0; }
+.after-table { width: 100%; table-layout: fixed; }
+.after-table th, .after-table td { overflow-wrap: anywhere; vertical-align: top; }
+.after-table .listing-product { align-items: start; }
+.after-table .listing-product img { flex-shrink: 0; }
+.order-balance dl { display: grid; grid-template-columns: minmax(100px, 1fr) 2fr; gap: 4px 12px; }
+.order-balance dd { margin: 0; }
+.message-layout { display: grid; grid-template-columns: minmax(220px, 1fr) minmax(0, 2fr); gap: 8px; align-items: start; }
+.conversation { display: flex; flex-direction: column; align-items: stretch; gap: 8px; width: 100%; height: auto; text-align: left; white-space: normal; padding: 12px; }
+.after-screen .conversation { margin-right: 0; }
+.conversation-snippet { white-space: nowrap; text-overflow: ellipsis; overflow: hidden; }
+.conversation-thread { min-width: 0; }
+.after-dense .after-row, .after-dense .conversation, .after-dense td { padding: 8px; }
+.weekly-chart { width: 100%; max-height: 220px; color: var(--foreground); }
+.weekly-chart text { font: 12px system-ui, sans-serif; fill: currentColor; }
+@media (max-width: 1023px) {
+  .after-table, .after-table tbody, .after-table tr, .after-table th, .after-table td, .after-table tfoot { display: block; width: 100%; }
+  .after-table thead { display: none; }
+  .after-table tr { border-bottom: 1px solid var(--border-subtle); padding: 8px 0; }
+  .after-table td, .after-table th { border: 0; }
+  .message-layout { grid-template-columns: minmax(0, 1fr); }
+  .message-layout:not(.thread-open) .conversation-thread { display: none; }
+  .message-layout.thread-open .conversation-list { display: none; }
+  .after-screen button, .after-screen input, .after-screen select, [data-shipment] button, [data-shipment] input { min-height: 44px; }
+}
+
+/* Stage 3 compact flow and inline controls. */
+.after-screen { font-size: 13px; overflow-wrap: anywhere; }
+.after-screen h2 { font-size: 14px; font-weight: 600; padding-bottom: 8px; border-bottom: 1px solid var(--border-subtle); }
+.after-screen h3 { font-size: 14px; font-weight: 600; }
+.after-screen p { margin: 4px 0; }
+.after-screen .listing-product img { width: 40px; height: 40px; flex: 0 0 40px; }
+.after-screen .listing-product { min-width: 0; }
+.after-screen .listing-product strong { min-width: 0; }
+.after-screen button { min-height: 32px; height: auto; white-space: normal; }
+.after-table th { font-size: 12px; font-weight: 500; }
+.after-table td, .after-table th { padding: 8px; font-size: 13px; }
+.after-table thead th { font-size: 12px; }
+.after-row { display: grid; grid-template-columns: minmax(0, 1fr); gap: 4px; padding: 8px 0; }
+.stepper { display: flex; list-style: none; padding: 8px 0; margin: 0; gap: 8px; }
+.step { display: flex; flex: 1 1 0; align-items: center; gap: 6px; min-width: 0; font-size: 12px; color: var(--muted-foreground); }
+.step:not(:last-child)::after { content: ""; height: 1px; flex: 1; min-width: 8px; background: var(--border); }
+.step-circle { display: inline-flex; align-items: center; justify-content: center; flex: 0 0 22px; height: 22px; border: 1px solid var(--border); border-radius: 50%; }
+.step-circle svg { width: 14px; height: 14px; }
+.step.is-current { color: var(--foreground); font-weight: 600; }
+.step.is-current .step-circle { background: var(--primary); border-color: var(--primary); color: var(--primary-foreground); }
+.step.is-done .step-circle { color: var(--primary); border-color: var(--primary); }
+.tracking-controls { display: flex; align-items: end; gap: 8px; }
+.tracking-controls label { flex: 0 1 280px; margin: 0; }
+.tracking-controls button { margin: 0; min-height: 36px; }
+.tracking-reason, .thread-meta, .compact-notice, .offer-reason, .watcher-stats span, .ad-impact { font-size: 12px; }
+.tracking-reason { margin: 4px 0 0; }
+.balance-summary { display: flex; flex-wrap: wrap; gap: 4px; }
+.order-balance summary, .chart-table summary { cursor: pointer; padding: 8px 0; font-size: 12px; }
+.order-balance details { font-size: 12px; }
+.compact-notice { padding: 8px; background: var(--muted); color: var(--muted-foreground); border-radius: 6px; }
+.conversation-thread [data-after="back"] { display: none; }
+.thread-header { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
+.thread-header h3 { margin: 0; }
+.thread-header .listing-product { flex: 1 1 180px; }
+.conversation-thread blockquote { margin: 8px 0; padding: 8px; border-left: 2px solid var(--border); background: var(--muted); }
+.warning-notice { padding: 8px; border: 1px solid var(--warning-solid); border-radius: 6px; color: var(--warning-text); background: color-mix(in oklch, var(--warning-solid) 8%, var(--card)); }
+.offer-controls, .offer-preview, .incoming-controls, #counter-preview { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; min-width: 0; }
+.offer-controls label { margin: 0; max-width: 100%; }
+.offer-controls input { width: 72px; }
+.offer-preview { flex: 1 1 200px; }
+.offer-preview > p:not(.offer-price) { flex-basis: 100%; font-size: 12px; color: var(--muted-foreground); }
+.discount-presets { display: inline-flex; flex-shrink: 0; }
+.discount-presets button { margin: 0; border-radius: 0; padding: 0 8px; }
+.discount-presets button:first-child { border-radius: 6px 0 0 6px; }
+.discount-presets button:last-child { border-radius: 0 6px 6px 0; }
+.discount-presets button[aria-pressed="true"] { color: var(--primary); border-color: var(--primary); background: var(--accent); }
+.incoming-controls label { margin: 0; }
+.incoming-controls input { width: 112px; }
+.counter-price { font-size: 12px; }
+.watcher-stats span { color: var(--muted-foreground); }
+.watcher-table th:first-child { width: 23%; }
+.watcher-table th:nth-child(2) { width: 13%; }
+.watcher-table th:nth-child(3) { width: 16%; }
+.ad-controls { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.ad-controls [role="switch"] { margin-left: auto; }
+.ad-impact { display: none; color: var(--muted-foreground); }
+tr:hover .ad-impact, tr:focus-within .ad-impact, .ad-impact.is-visible { display: block; }
+.weekly-chart { display: block; width: 100%; height: auto; max-height: none; }
+.after-screen .metrics { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+@media (max-width: 1023px) {
+  .after-screen button, .after-screen input, .after-screen select, [data-shipment] button, [data-shipment] input { min-height: 44px; }
+  .conversation-thread [data-after="back"] { display: inline-flex; }
+  .order-balance summary, .chart-table summary { min-height: 44px; display: flex; align-items: center; }
+  .after-table td, .after-table th { width: auto; }
+  .watcher-table th:first-child, .watcher-table th:nth-child(2), .watcher-table th:nth-child(3) { width: auto; }
+}
+@media (max-width: 599px) {
+  .stepper { flex-direction: column; gap: 0; }
+  .step { position: relative; flex: none; min-height: 34px; }
+  .step:not(:last-child)::after { position: absolute; top: 28px; left: 11px; width: 1px; min-width: 0; height: 12px; }
+  .tracking-controls { flex-direction: column; align-items: stretch; }
+  .tracking-controls label { flex: auto; width: 100%; max-width: 280px; }
+  .tracking-controls button { align-self: start; }
+  .after-screen .metrics { grid-template-columns: minmax(0, 1fr); }
+}
+@media (min-width: 1024px) {
+  .after-row { grid-template-columns: minmax(0, 1fr) minmax(280px, 1fr); column-gap: 16px; }
+  .after-row > .stepper, .after-row > .order-balance { grid-column: 1 / -1; }
+  .after-row > .tracking-form { grid-column: 1 / -1; }
+}

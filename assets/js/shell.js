@@ -1,7 +1,7 @@
 (function () {
   'use strict';
   var C = window.IdealCore, D = window.IdealData, T = window.IdealToday, M = window.IdealMarks, e = C.escape;
-  var route, pending, returnFocus, supportScreen;
+  var route, pending, returnFocus, supportScreen, previousMode;
   var undoCallbacks = {}, undoSerial = 0;
   var dialog = document.getElementById('dialog');
   var icon = window.IdealIcons;
@@ -11,7 +11,7 @@
       return '<div class="nav-group">' + (group[0] ? '<h2>' + group[0] + '</h2>' : '') +
         group[1].map(function (entry) {
           var id = entry[0];
-          var badgeLabel = (id === 'listings' ? '要修正 ' : id === 'orders' ? '発送待ち ' : id === 'messages' ? '未返信 ' : '要対応 ') + badges[id] + ' 件（例）';
+          var badgeLabel = (id === 'listings' ? '要修正 ' : id === 'orders' ? '発送待ち ' : id === 'messages' ? '未読 ' : '要対応 ') + badges[id] + ' 件（例）';
           return '<a href="#/' + id + '"' + (id === 'today' ? ' class="pinned"' : '') +
             (route === id ? ' aria-current="page"' : '') + '>' + icon(id) +
             '<span class="nav-label">' + entry[1] + '</span>' +
@@ -56,7 +56,10 @@
   }
   function render() {
     var focused = document.activeElement, action = focused && focused.dataset ? focused.dataset.action : '', actionId = focused && focused.dataset ? focused.dataset.id : '';
-    route = D.route(window.location.hash);
+    var nextRoute = D.route(window.location.hash);
+    if (route !== nextRoute || previousMode !== C.mode) window.IdealAfterUI.cancelPending();
+    previousMode = C.mode;
+    route = nextRoute;
     if (!/^#\//.test(window.location.hash) || window.location.hash.split('/')[1] !== route) window.history.replaceState(null, '', '#/' + route);
     document.documentElement.setAttribute('data-theme', C.theme);
     document.title = D.title(route) + ' | 理想のオートパイロット（構想）';
@@ -68,6 +71,21 @@
     if (window.IdealScreens[route].bind) window.IdealScreens[route].bind(document.getElementById('main'));
     document.getElementById('tabs').innerHTML = [['today', '今日'], ['sourcing', '仕入れ'], ['create', '出品'], ['orders', '売れたあと']].map(function (r) { return '<a href="#/' + r[0] + '"' + (route === r[0] ? ' aria-current="page"' : '') + '>' + r[1] + '</a>'; }).join('') + '<button data-action="drawer">もっと</button>';
     if (action) { var candidates = document.querySelectorAll('[data-action]'); Array.prototype.some.call(candidates, function (n) { if (n.dataset.action === action && n.dataset.id === actionId) { n.focus(); return true; } return false; }); }
+  }
+  function confirmAftersale(kind, id, value) {
+    var ticket = D.prepareAftersale(kind, id, value);
+    if (!ticket) return;
+    var html = window.IdealAfterUI.confirmHTML(ticket)
+      .replace('data-after="execute"', 'data-action="confirm"')
+      .replace('data-after="cancel"', 'data-action="close"');
+    open(html);
+    pending = function () {
+      var undo = D.executeAftersale(ticket);
+      if (!undo) return;
+      render();
+      document.getElementById('main').focus();
+      toastUndo('実行しました（試作内のみ）', undo);
+    };
   }
   function finish(id, label) { if (D.resolve(id)) { render(); document.getElementById('main').focus(); toast(label + '（試作内のみ）', id); } }
   function confirm(item, label, text, apply) { pending = null; open('<h2>実行内容の確認</h2><p>' + e(text) + '</p><p>対象1件。実際の送信・連携は行いません。試作内では元に戻せます。</p><button data-action="confirm">確認して実行（試作）</button><button data-action="close">キャンセル</button>'); pending = function () { if (apply) apply(); finish(item.id, label); }; }
@@ -109,23 +127,43 @@
     if (action === 'undo') { if (undoCallbacks[id]) { undoCallbacks[id](); delete undoCallbacks[id]; } else D.undo(id); b.parentElement.remove(); render(); document.getElementById('main').focus(); toast('元に戻しました'); }
     if (action === 'automation') { var a = D.automations.find(function (v) { return v.id === id; }); a.on = !a.on; render(); toast(a.name + (a.on ? 'を再開しました（試作）' : 'を停止しました（試作）。' + a.impact)); }
     if (action === 'fix') finish(id, '修正しました');
-    if (action === 'message') { var draft = document.querySelector('[data-draft="' + id + '"]').value.trim(); if (!draft) { toast('返信文を入力してください'); return; } confirm(item, '返信を送信しました', '送信する返信文：' + draft, function () { item.draft = draft; }); }
+    if (action === 'message') {
+      var draft = document.querySelector('[data-draft="' + id + '"]').value.trim();
+      if (!draft) { toast('返信文を入力してください'); return; }
+      confirmAftersale('message', id, draft);
+    }
     if (action === 'ended') confirm(item, '取り下げました', '対象1件・eBay上の出品を終了します・再出品が必要。実際の操作は取り消せません。');
     if (['accept', 'decline', 'counter'].includes(action)) {
       var gross = action === 'counter' ? Number(document.querySelector('[data-counter="' + id + '"]').value) : item.gross;
       var value = C.takeHome(gross, item.shipping, item.cost);
       if (action !== 'decline' && (!Number.isFinite(gross) || gross <= 0 || value === null || value < 0)) { open('<h2>価格を確認してください</h2>' + T.profit(item, gross) + '<p>赤字または不明な価格では実行できません。価格を見直すか辞退してください。</p>'); return; }
-      confirm(item, action === 'counter' ? '価格を再提案しました' : action === 'accept' ? 'オファーを承諾しました' : 'オファーを辞退しました', '価格 ' + C.money(gross * 155) + ' ／ ' + (value < 0 ? '⚠ 赤字 ' : '') + '手残り ' + C.money(value) + (action === 'decline' ? '。辞退すると、この提案では取引しません。' : '。この価格で進めます。'));
+      confirmAftersale(action, id, gross);
     }
     if (action === 'confirm' && pending) { var perform = pending; close(); perform(); }
   });
   document.addEventListener('toggle', function (event) { if (event.target.matches && event.target.matches('[data-task]')) { var button = event.target.querySelector('[data-action="expand"]'); if (button) button.setAttribute('aria-expanded', String(event.target.open)); } }, true);
-  document.addEventListener('input', function (event) { var t = event.target; if (t.dataset.draft) D.items.find(function (i) { return i.id === t.dataset.draft; }).draft = t.value; if (t.name === 'tracking') D.items.find(function (i) { return i.id === t.closest('form').dataset.shipment; }).tracking = t.value; });
+  document.addEventListener('input', function (event) {
+    var t = event.target;
+    if (t.dataset.draft) D.items.find(function (i) { return i.id === t.dataset.draft; }).draft = t.value;
+    if (t.name === 'tracking') {
+      var form = t.closest('form'), row = D.orders.find(function (r) { return r.id === form.dataset.shipment; });
+      if (!row) return;
+      row.tracking = t.value;
+      var check = window.IdealAftersale.tracking(t.value);
+      form.querySelector('[data-tracking-reason]').textContent = check.reason;
+      form.querySelector('button[type="submit"]').disabled = !check.valid;
+      t.setAttribute('aria-invalid', String(!check.valid));
+    }
+  });
   document.addEventListener('submit', function (event) {
     event.preventDefault(); var form = event.target;
     if (form.id === 'search-form') toast('試作のため検索は動きません');
     if (form.id === 'support-form') { close(); toast('「' + supportScreen + '」の相談を受け付けました（試作・運営には送信されません）'); }
-    if (form.dataset.shipment) { var tracking = form.elements.tracking.value.trim(); if (!tracking) { toast('追跡番号を入力してください'); return; } finish(form.dataset.shipment, '追跡番号 ' + tracking + ' で発送登録しました'); }
+    if (form.dataset.shipment) {
+      var tracking = window.IdealAftersale.tracking(form.elements.tracking.value);
+      if (!tracking.valid) { toast(tracking.reason); return; }
+      confirmAftersale('ship', form.dataset.shipment, tracking.value);
+    }
   });
   document.addEventListener('keydown', function (event) {
     if (event.key === 'Escape') { var search = document.getElementById('search-form'); if (search && !search.hidden) { search.hidden = true; var searchButton = document.querySelector('[data-action="search"]'); searchButton.setAttribute('aria-expanded', 'false'); searchButton.focus(); } var notes = document.getElementById('notifications'); if (notes && !notes.hidden) { notes.hidden = true; var bell = document.querySelector('[data-action="notifications"]'); bell.setAttribute('aria-expanded', 'false'); bell.focus(); } }

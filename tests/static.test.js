@@ -4,7 +4,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const root = path.join(__dirname,'..');
 const read = p => fs.readFileSync(path.join(root,p),'utf8');
-const jsFiles = ['icons.js','core.js','checks.js','data.js','marks.js','shell.js','screens/today.js','screens/stub.js','screens/make.js','screens/listings.js'];
+const jsFiles = fs.readdirSync(path.join(root, 'assets/js'), { recursive: true }).filter(p => p.endsWith('.js'));
 const html = read('index.html'), css = read('assets/css/app.css').replace(/\s*([{}:;,])\s*/g, '$1');
 const sources = [html, css, read('assets/css/tokens.css'), read('assets/js/products-data.js'), ...jsFiles.map(p => read('assets/js/'+p))].join('\n');
 function network(s) { return /\b(?:fetch\s*\(|XMLHttpRequest|WebSocket|EventSource|sendBeacon\s*\(|importScripts\s*\()|https?:\/\/[^\s'"<]+|(?:src|href)\s*=\s*["'](?:https?:|\/\/)|url\(\s*["']?(?:https?:|\/\/)/i.test(s); }

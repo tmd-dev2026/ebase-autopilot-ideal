@@ -5,7 +5,7 @@ const vm = require('node:vm');
 const path = require('node:path');
 const root = path.join(__dirname, '..');
 const source = file => fs.readFileSync(path.join(root, file), 'utf8');
-const scripts = ['products-data.js', 'icons.js', 'core.js', 'checks.js', 'data.js', 'marks.js', 'screens/today.js', 'screens/stub.js', 'screens/make.js', 'screens/listings.js'];
+const scripts = [...source('index.html').matchAll(/<script defer src="assets\/js\/([^"]+)"/g)].map(m => m[1]).filter(p => p !== 'shell.js');
 function boot(storage = {}) {
   const listeners = {}, nodes = {};
   function node(id) { return nodes[id] || (nodes[id] = { id, dataset: {}, innerHTML: '', hidden: true, value: '', children: [], setAttribute(k,v) { this[k] = v; }, appendChild(n) { this.children.push(n); }, focus() { document.activeElement = this; }, showModal() { this.open = true; }, close() { this.open = false; }, addEventListener(k,fn) { this[k] = fn; } }); }
@@ -16,6 +16,10 @@ function boot(storage = {}) {
   vm.runInContext(source('assets/js/shell.js'), context);
   function click(action,id) { const b = { dataset: { action, id }, setAttribute(k,v) { this[k] = v; }, parentElement: { remove() {} } }; listeners.click({ preventDefault() {}, target: { closest: selector => selector === '[data-action]' ? b : null } }); }
   return { window, document, nodes, node, context, listeners, click };
+}
+function undoToast(app) {
+  const token = app.node('toasts').children.at(-1).innerHTML.match(/data-id="([^"]+)"/)[1];
+  app.click('undo', token);
 }
 let app = boot(), { IdealData: D, IdealCore: C, IdealToday: T, IdealMarks: M } = app.window;
 assert.equal(D.products.length, 6);
@@ -30,7 +34,7 @@ D.groups.flatMap(g => g[1]).forEach(([route]) => {
   assert.match(html, /本物との対応/); assert.match(html, /class="mark"/); assert.match(app.nodes.header.innerHTML, /data-action="legend"/);
   assert.match(html, new RegExp('<h1>' + D.title(route) + '</h1>'));
   assert.equal((html.match(/<h1>/g) || []).length, 1);
-  if (!['today', 'create', 'listings'].includes(route)) { assert.match(html, /この画面は次の段階で作ります/); assert.doesNotMatch(html, /data-task/); }
+  if (!['today', 'create', 'listings', 'orders', 'messages', 'returns', 'offers', 'ads', 'reports'].includes(route)) { assert.match(html, /この画面は次の段階で作ります/); assert.doesNotMatch(html, /data-task/); }
 });
 app.window.location.hash = '#/missing'; app.window.IdealShell.render(); assert.equal(app.window.location.hash, '#/today');
 assert.equal(D.route('#/today/fix-card'), 'today');
@@ -61,12 +65,12 @@ app = boot(); D = app.window.IdealData;
 app.click('fix','fix-card'); assert.equal(D.counts().total, 8); assert.match(app.nodes.toasts.children.at(-1).innerHTML, /元に戻す/);
 app.click('undo','fix-card'); assert.equal(D.counts().total, 9);
 app.node('[data-draft="message-watch"]').value = 'Checked reply'; app.click('message','message-watch'); assert.equal(D.counts().total,9); assert.match(app.nodes.dialog.innerHTML, /Checked reply/); app.click('close'); assert.equal(D.counts().total,9);
-app.click('message','message-watch'); app.click('confirm'); assert.equal(D.counts().message,1); app.click('undo','message-watch');
+app.click('message','message-watch'); app.click('confirm'); assert.equal(D.counts().message,1); undoToast(app);
 app.click('accept','offer-figure'); assert.match(app.nodes.dialog.innerHTML, /赤字/); assert.doesNotMatch(app.nodes.dialog.innerHTML, /data-action="confirm"/); assert.equal(D.counts().offer,1); app.click('close');
-app.node('[data-counter="offer-figure"]').value = '120'; app.click('counter','offer-figure'); assert.match(app.nodes.dialog.innerHTML, /1,822/); assert.equal(D.counts().offer,1); app.click('confirm'); assert.equal(D.counts().offer,0); app.click('undo','offer-figure');
-app.click('decline','offer-figure'); app.click('confirm'); assert.equal(D.counts().offer,0); app.click('undo','offer-figure');
+app.node('[data-counter="offer-figure"]').value = '120'; app.click('counter','offer-figure'); assert.match(app.nodes.dialog.innerHTML, /1,822/); assert.equal(D.counts().offer,1); app.click('confirm'); assert.equal(D.counts().offer,0); undoToast(app);
+app.click('decline','offer-figure'); app.click('confirm'); assert.equal(D.counts().offer,0); undoToast(app);
 app.click('ended','ended-bag'); assert.match(app.nodes.dialog.innerHTML, /対象1件・eBay上の出品を終了します・再出品が必要/); assert.equal(D.counts().ended,1); app.click('confirm'); assert.equal(D.counts().ended,0); app.click('undo','ended-bag');
-app.listeners.submit({ preventDefault() {}, target: { dataset: { shipment:'ship-camera' }, elements: { tracking: { value: 'TRACK-EXAMPLE' } } } }); assert.equal(D.counts().shipment,1); app.click('undo','ship-camera');
+app.listeners.submit({ preventDefault() {}, target: { dataset: { shipment:'ship-camera' }, elements: { tracking: { value: 'TRACK-EXAMPLE' } } } }); assert.equal(D.counts().shipment,2); assert.match(app.nodes.dialog.innerHTML, /取り消せません/); app.click('confirm'); assert.equal(D.counts().shipment,1); undoToast(app);
 app.listeners.submit({ preventDefault() {}, target: { dataset: { shipment:'ship-camera' }, elements: { tracking: { value: '   ' } } } }); assert.equal(D.counts().shipment,2);
 app.click('automation','stock'); assert.equal(D.automations[0].on,false); app.click('automation','stock'); assert.equal(D.automations[0].on,true);
 app.click('notifications'); assert.equal((app.nodes.notifications.innerHTML.match(/href=/g)||[]).length,3);
@@ -112,7 +116,7 @@ for (const state of [false, true]) {
 }
 assert.match(T.render(), /<details><summary>詳しく<\/summary>/);
 assert.match(T.render(), /見込み\(まだ確定ではありません\)/); assert.match(T.render(), /class="metric-label">確定</);
-assert.match(T.render(), /¥24,000 \/ \$154.84/); assert.match(T.render(), /未確定の追加費用：—/);
+assert.ok(T.render().includes(app.window.IdealCore.money(app.window.IdealAftersale.reports(D.orders, D.listings).estimate))); assert.match(T.render(), /未確定の追加費用：—/);
 for (const heading of T.render().matchAll(/<h2>(.*?)<\/h2>/g)) assert.ok((heading[1].match(/class="mark"/g) || []).length <= 2);
 console.log('PASS polish: header, search, theme cycle, display menu, chips, summary, row verbs, expansion, switches and metric labels');
 
