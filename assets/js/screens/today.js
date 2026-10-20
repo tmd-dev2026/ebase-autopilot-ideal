@@ -1,0 +1,41 @@
+(function () {
+  'use strict';
+  var C = window.IdealCore, D = window.IdealData, M = window.IdealMarks, e = C.escape;
+  function button(action, id, text) { return '<button data-action="' + action + '" data-id="' + id + '">' + text + '</button>'; }
+  function profit(item, gross) { var value = C.takeHome(gross, item.shipping, item.cost); return '<p class="' + (value < 0 ? 'loss' : '') + '"><strong>' + (value < 0 ? '⚠ 赤字 ' : '') + '手残り ' + C.money(value) + '</strong></p>'; }
+  function body(item) {
+    if (item.category === 'fix') return '<dl><dt>原因</dt><dd>' + e(item.cause) + '</dd><dt>自分で直せるか</dt><dd>' + e(item.canFix) + '</dd><dt>出品への影響</dt><dd>' + e(item.effect) + '</dd><dt>次の一手</dt><dd>' + e(item.next) + '</dd></dl>' + button('fix', item.id, '上記の内容で修正する（試作）');
+    if (item.category === 'message') return '<p>購入者の原文</p><blockquote lang="en">' + e(item.buyer) + '</blockquote><p><strong>AI要約：</strong>' + e(item.summary) + '</p><p>' + e(item.reason) + '</p><label>AI返信案（編集できます）<textarea data-draft="' + item.id + '">' + e(item.draft) + '</textarea></label>' + button('message', item.id, '確認して送信');
+    if (item.category === 'offer') return '<p>提示価格 ' + C.money(item.gross * 155) + ' ／ 送料・取扱費 ' + C.money(item.shipping) + ' ／ 仕入れ ' + C.money(item.cost) + '</p>' + profit(item, item.gross) + '<details><summary>計算の内訳（例）</summary><p>手残り = (価格 − (価格 × (13.25% + 1.35%) + $0.40 / ¥62)) × 155 − 送料・取扱費 − 仕入れ。為替：$1 / ¥155（例）。</p></details><p>赤字の承諾はできません。辞退するか、価格を再提案してください。</p>' + button('accept', item.id, '承諾を確認') + button('decline', item.id, '辞退を確認') + '<label>再提案価格（USD・例）<input type="number" min="0.01" step="0.01" data-counter="' + item.id + '" value="120"></label>' + button('counter', item.id, '手残りを確認して再提案');
+    if (item.category === 'shipment') return '<form data-shipment="' + item.id + '"><label>追跡番号<input name="tracking" required maxlength="80" autocomplete="off" value="' + e(item.tracking || '') + '"></label><button type="submit">発送登録（試作）</button></form>';
+    return '<p>対象1件・eBay上の出品を終了します・再出品が必要</p><p>実際の出品終了は元に戻せません。この試作内では元に戻せます。</p>' + button('ended', item.id, '取り下げを確認');
+  }
+  function facts(item) {
+    if (item.category === 'fix') return e(item.cause + ' · ' + (item.canFix.indexOf('はい') === 0 ? '自分で直せる' : '運営確認') + ' · ' + item.effect);
+    if (item.category === 'message') return e(item.summary);
+    if (item.category === 'offer') { var value = C.takeHome(item.gross, item.shipping, item.cost); return '提示 ' + C.money(item.gross * 155) + ' · <span class="' + (value < 0 ? 'loss' : '') + '">' + (value < 0 ? '⚠ 赤字 ' : '') + '手残り ' + C.money(value) + '</span>'; }
+    if (item.category === 'shipment') return e((item.country || '—') + ' · 発送期限 ' + (item.due || '—'));
+    return e(item.reason || '—');
+  }
+  function itemHTML(item, dense) {
+    var p = D.products.find(function (product) { return product.id === item.product; }), cat = D.categories.find(function (c) { return c.id === item.category; });
+    return '<details class="task ' + (dense ? 'dense-task' : '') + '" id="item-' + item.id + '" data-task="' + item.id + '"><summary><img src="assets/img/' + e(p.slug) + '-1.jpg" alt="" width="56" height="56"><span class="task-copy">' + (dense ? '<small>' + e(cat.icon + ' ' + cat.label) + '</small>' : '') + '<span class="product-name">' + e(p.name) + '</span><span class="task-facts">' + facts(item) + '</span></span><button class="primary row-action" data-action="expand" data-id="' + item.id + '" aria-expanded="false" aria-controls="detail-' + item.id + '">' + cat.verb + '</button></summary><div class="task-body" id="detail-' + item.id + '">' + body(item) + '</div></details>';
+  }
+  window.IdealToday = {
+    filter: 'all', profit: profit, itemHTML: itemHTML,
+    render: function () {
+      var counts = D.counts(), active = D.active(), novice = C.mode === 'はじめて', dense = C.mode === '上級';
+      var html = '';
+      if (novice) { var next = D.steps.find(function (s) { return !s[1]; }); html += '<section class="card checklist"><h2>いまやること：' + e(next[2]) + '</h2><ol>' + D.steps.map(function (s) { return '<li class="' + (s === next ? 'next-step' : '') + '">' + (s[1] ? '✓ 完了：' : '○ 未完了：') + e(s[0]) + ' <a href="#/' + s[3] + '">次の一手：' + e(s[2]) + '</a></li>'; }).join('') + '</ol><p>初期設定は構想の進捗例です。リンク先は次の段階で作ります。</p></section>'; }
+      html += '<section class="overview"><p class="eyebrow">まずは、次の一手から</p><h2>要対応 <span class="total">' + counts.total + '</span> 件（例） ' + M.component('cards') + M.component('inline') + '</h2><p class="progress">今日 ' + (D.items.length - counts.total) + ' 件 対応済み / 全 ' + D.items.length + ' 件（例）</p><div class="chips">' + D.categories.filter(function (c) { return counts[c.id]; }).map(function (c) { return '<a class="chip" data-action="category" data-id="' + c.id + '" href="#/today/' + active.find(function (i) { return i.category === c.id; }).id + '">' + c.label + ' ' + counts[c.id] + '（例）</a>'; }).join('') + '</div></section>';
+      if (!counts.total) html += '<section class="card"><h2>今日の対応は終わりました</h2><p>次は、<a href="#/sourcing">仕入れの候補を探しましょう</a>。</p></section>';
+      else if (dense) {
+        html += '<section class="card dense-list"><h2>対応一覧</h2><p>j / k：移動 · Enter：開く・操作 · ?：ヘルプ</p><div class="filters" aria-label="対応の絞り込み">' + [['all', 'すべて'], ['fix', '出品'], ['message', 'メッセージ'], ['offer', 'オファー'], ['shipment', '発送']].map(function (f) { return '<button data-action="filter" data-id="' + f[0] + '" aria-pressed="' + (window.IdealToday.filter === f[0]) + '">' + f[1] + '</button>'; }).join('') + '</div>';
+        var filtered = active.filter(function (i) { return window.IdealToday.filter === 'all' || i.category === window.IdealToday.filter || (window.IdealToday.filter === 'fix' && i.category === 'ended'); });
+        html += filtered.length ? filtered.map(function (i) { return itemHTML(i, true); }).join('') : '<p>この条件の要対応はありません。</p>'; html += '</section>';
+      } else html += '<div class="categories">' + D.categories.filter(function (cat) { return counts[cat.id]; }).map(function (cat) { return '<section class="card category" id="category-' + cat.id + '" tabindex="-1" data-category="' + cat.id + '"><h2><span aria-hidden="true">' + cat.icon + '</span> ' + cat.label + ' <span class="count">' + counts[cat.id] + '（例）</span></h2>' + (novice ? '<p>' + cat.explanation + '</p>' : '') + active.filter(function (i) { return i.category === cat.id; }).map(function (i) { return itemHTML(i, false); }).join('') + '</section>'; }).join('') + '</div>';
+      html += '<section class="card"><h2>自動処理の状況 ' + M.component('automation') + '</h2><p class="muted">構想の稼働例です。実際の処理は行いません。</p><div class="automation-grid">' + D.automations.map(function (a) { return '<article class="automation"><div class="automation-heading"><h3>' + a.name + '</h3><button class="switch" role="switch" aria-label="' + a.name + '" aria-checked="' + a.on + '" data-action="automation" data-id="' + a.id + '"><span class="switch-track" aria-hidden="true"></span>' + (a.on ? 'ON' : 'OFF') + '</button></div><p>最終実行 ' + a.minutes + '分前（例）</p><p>直近の結果：' + a.result + '（例）</p>' + (!a.on ? '<p class="stop-effect">停止の影響：' + a.impact + '。</p>' : '') + '<details><summary>詳しく</summary><p>根拠：' + a.basis + '。止めたときの影響：' + a.impact + '。</p><p>再開はONに戻します。実際の取り下げ後は再出品が必要です。</p></details></article>'; }).join('') + '</div></section><section class="card"><h2>今週の数字 ' + M.component('numbers') + '</h2><p class="muted">期間：10月19日〜25日（例）</p><div class="metrics"><div class="metric estimated"><p class="metric-label">見込み(まだ確定ではありません)</p><h3>見込みの手残り</h3><strong>' + C.money(24000) + '</strong><p>未販売分の費用見積り。確定した利益ではありません。</p></div><div class="metric confirmed"><p class="metric-label">確定</p><h3>確定の手残り</h3><strong>' + C.money(8200) + '</strong><p>販売済み・費用確定分の例。</p></div></div><p>未確定の追加費用：—</p></section>' + M.card('today');
+      return html;
+    }
+  };
+})();
