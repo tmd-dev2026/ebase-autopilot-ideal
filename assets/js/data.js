@@ -43,4 +43,90 @@
     route: function (hash) { var route = (hash || '').replace(/^#\//, '').split('/')[0]; return groups.some(function (g) { return g[1].some(function (r) { return r[0] === route; }); }) ? route : 'today'; },
     title: function (route) { return groups.flatMap(function (g) { return g[1]; }).find(function (r) { return r[0] === route; })[1]; }
   };
+  var D = window.IdealData;
+  D.decisions = [];
+  D.settings = { shipping: 'Tracked delivery', returns: 'Returns within 30 days', payment: 'Managed payments', duties: 'DDU' };
+  function draft(product, index) {
+    return { id: 'draft-' + index, product: product.id, title: product.ai.titleEn,
+      description: product.ai.descriptionEn.join('\n'), specifics: Object.fromEntries(product.ai.specifics),
+      required: ['Brand', 'Type'], category: product.ai.category, confidence: 92,
+      candidates: [product.ai.category, 'Collectibles > Other Collectibles'],
+      photos: product.images.slice(), photoDamage: index === 0, risks: [],
+      gross: product.sale + 80, shipping: 2000, cost: product.cost, duplicate: false };
+  }
+  D.drafts = D.products.slice(0, 3).map(draft);
+  D.drafts[1].specifics.Type = '';
+  D.drafts[1].confidence = 45;
+  D.drafts[2].gross = 30;
+  var states = ['要修正', '要修正', '要修正', '仕入元終了', '出品中', '出品中', '予約済み', '要判断', '注意', 'eBay終了', '対象外', '出品中'];
+  D.listings = states.map(function (state, index) {
+    var product = D.products[index % 6], task = index < 3 ? items[index] : index === 3 ? items[8] : null;
+    if (task) product = D.products.find(function (p) { return p.id === task.product; });
+    return { id: 'listing-' + index, product: product.id, name: product.name + ' / 例 ' + (index + 1),
+      state: state, taskId: task && task.id, gross: product.sale + 80, shipping: 2000, cost: product.cost,
+      date: '2026-10-' + String(10 + index % 9), stock: state === '仕入元終了' ? '終了を検知' : '監視中・4分前に確認（例）',
+      cause: task ? (task.cause || task.reason) : state === '要判断' ? 'カテゴリを人が選ぶ必要があります' : state === '注意' ? '画像の背景処理を確認してください' : '現在の状態を確認してください',
+      next: task ? (task.next || '取り下げてください') : '内容を確認してから再出品してください',
+      original: index === 0 ? 'The condition description does not match the selected condition.' : index === 1 ? 'Shipping policy is required.' : 'Please review the listing details.' };
+  });
+  // The 今日 tasks and listings share completion state in both directions.
+  D.listings.filter(function (row) { return row.taskId; }).forEach(function (row) {
+    var task = items.find(function (item) { return item.id === row.taskId; });
+    var pendingState = row.state;
+    Object.defineProperty(task, 'done', { configurable: true, enumerable: true,
+      get: function () { return row.state !== pendingState; },
+      set: function (done) { row.state = done ? (pendingState === '仕入元終了' ? 'eBay終了' : '出品中') : pendingState; }
+    });
+  });
+  D.listingCounts = function () {
+    return D.listings.reduce(function (counts, row) { counts[row.state] = (counts[row.state] || 0) + 1; return counts; }, {});
+  };
+  D.publish = function (id, options) {
+    options = options || {};
+    var entry = D.drafts.find(function (d) { return d.id === id; });
+    if (!entry || entry.published) return false;
+    if (options.schedule && (!Number.isFinite(Date.parse(options.schedule)) || Date.parse(options.schedule) <= Date.now())) return false;
+    var result = window.IdealChecks.validateListing(entry, D.settings);
+    if (!result.canPublish && !window.IdealChecks.recordOverride(entry, D.settings, options.mode, options.reason, D.decisions)) return false;
+    var row = { id: 'published-' + id, product: entry.product, name: entry.title, state: options.schedule ? '予約済み' : '出品中',
+      gross: entry.gross, shipping: entry.shipping, cost: entry.cost, date: options.schedule || new Date().toISOString().slice(0, 10),
+      stock: '監視中（例）', cause: '', next: '', original: '', draftId: id };
+    D.listings.push(row); entry.published = true;
+    return row;
+  };
+  D.chooseCategory = function (entry, value) {
+    if (!entry.candidates.includes(value)) return;
+    entry.category = value; entry.confidence = 100;
+    D.decisions.push({ date: new Date().toISOString(), what: entry.title + '：カテゴリ選択', reason: '商品の種類に合うため：' + value, who: 'あなた' });
+  };
+  D.resetWording = '失敗表示を消して「AI処理済」に戻します。この操作では出品の予約はしません(自動出品の設定によってはあとで対象になることがあります)。';
+  D.bulkPreview = function (ids, action, percent) {
+    var rows = D.listings.filter(function (r) { return ids.includes(r.id); });
+    var valid = ['price', 'withdraw', 'relist', 'reset'].includes(action) && rows.length > 0;
+    if (action === 'price' && (!Number.isFinite(percent) || percent <= 0 || percent >= 100)) valid = false;
+    var losses = rows.filter(function (r) {
+      var value = window.IdealChecks.takeHome(action === 'price' ? r.gross * (1 - percent / 100) : r.gross, r.shipping, r.cost);
+      return value && value.yen < 0;
+    }).length;
+    return { ids: rows.map(function (r) { return r.id; }), action: action, percent: percent, count: rows.length, losses: losses, valid: valid,
+      text: { price: '選択した商品の販売価格を一律で下げます。', withdraw: 'eBay上の出品を終了します。実際には再出品が必要です。', relist: '内容を再確認して出品中に戻します。', reset: D.resetWording }[action],
+      undo: '試作内では元に戻せます。実際の出品・取り下げの履歴は消せません。' };
+  };
+  D.applyBulk = function (preview) {
+    var current = D.bulkPreview(preview.ids, preview.action, preview.percent);
+    if (!current.valid) return null;
+    var rows = D.listings.filter(function (r) { return preview.ids.includes(r.id); });
+    if (preview.action === 'relist' && rows.some(function (r) {
+      var value = window.IdealChecks.takeHome(r.gross, r.shipping, r.cost);
+      return !value || value.yen < 0 || ['要修正', '要判断', '仕入元終了', '対象外'].includes(r.state);
+    })) return null;
+    var snapshots = rows.map(function (r) { return Object.assign({}, r); });
+    rows.forEach(function (r) {
+      if (preview.action === 'price') r.gross *= 1 - preview.percent / 100;
+      if (preview.action === 'withdraw') r.state = 'eBay終了';
+      if (preview.action === 'relist') r.state = '出品中';
+      if (preview.action === 'reset') { r.state = '対象外'; r.cause = 'AI処理済'; r.next = '自動出品の設定を確認してください'; }
+    });
+    return function () { rows.forEach(function (r, index) { Object.assign(r, snapshots[index]); }); };
+  };
 })();

@@ -5,7 +5,7 @@ const vm = require('node:vm');
 const path = require('node:path');
 const root = path.join(__dirname, '..');
 const source = file => fs.readFileSync(path.join(root, file), 'utf8');
-const scripts = ['products-data.js', 'core.js', 'data.js', 'marks.js', 'screens/today.js', 'screens/stub.js'];
+const scripts = ['products-data.js', 'core.js', 'checks.js', 'data.js', 'marks.js', 'screens/today.js', 'screens/stub.js', 'screens/make.js', 'screens/listings.js'];
 function boot(storage = {}) {
   const listeners = {}, nodes = {};
   function node(id) { return nodes[id] || (nodes[id] = { id, dataset: {}, innerHTML: '', hidden: true, value: '', children: [], setAttribute(k,v) { this[k] = v; }, appendChild(n) { this.children.push(n); }, focus() { document.activeElement = this; }, showModal() { this.open = true; }, close() { this.open = false; }, addEventListener(k,fn) { this[k] = fn; } }); }
@@ -29,7 +29,7 @@ D.groups.flatMap(g => g[1]).forEach(([route]) => {
   const html = app.nodes.main.innerHTML;
   assert.match(html, /本物との対応/); assert.match(html, /class="mark"/); assert.match(app.nodes.header.innerHTML, /data-action="legend"/);
   assert.match(app.nodes.header.innerHTML, new RegExp(D.title(route)));
-  if (route !== 'today') { assert.match(html, /この画面は次の段階で作ります/); assert.doesNotMatch(html, /data-task/); }
+  if (!['today', 'create', 'listings'].includes(route)) { assert.match(html, /この画面は次の段階で作ります/); assert.doesNotMatch(html, /data-task/); }
 });
 app.window.location.hash = '#/missing'; app.window.IdealShell.render(); assert.equal(app.window.location.hash, '#/today');
 assert.equal(D.route('#/today/fix-card'), 'today');
@@ -114,3 +114,5 @@ assert.match(T.render(), /見込み\(まだ確定ではありません\)/); asse
 assert.match(T.render(), /¥24,000 \/ \$154.84/); assert.match(T.render(), /未確定の追加費用：—/);
 for (const heading of T.render().matchAll(/<h2>(.*?)<\/h2>/g)) assert.ok((heading[1].match(/class="mark"/g) || []).length <= 2);
 console.log('PASS polish: header, search, theme cycle, display menu, chips, summary, row verbs, expansion, switches and metric labels');
+
+module.exports = { boot };

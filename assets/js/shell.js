@@ -2,11 +2,17 @@
   'use strict';
   var C = window.IdealCore, D = window.IdealData, T = window.IdealToday, M = window.IdealMarks, e = C.escape;
   var route, pending, returnFocus, supportScreen;
+  var undoCallbacks = {}, undoSerial = 0;
   var dialog = document.getElementById('dialog');
   function nav() { var badges = D.badges(); return D.groups.map(function (g) { return '<div class="nav-group">' + (g[0] ? '<h2>' + g[0] + '</h2>' : '') + g[1].map(function (r) { return '<a href="#/' + r[0] + '"' + (route === r[0] ? ' aria-current="page"' : '') + '>' + r[1] + (badges[r[0]] ? '<span class="badge" data-badge="' + r[0] + '">' + (r[0] === 'listings' ? '要修正 ' : r[0] === 'orders' ? '発送待ち ' : '') + badges[r[0]] + '（例）</span>' : '') + '</a>'; }).join('') + '</div>'; }).join(''); }
   function open(content) { returnFocus = document.activeElement; dialog.innerHTML = '<div class="dialog-top"><span id="dialog-title">理想のオートパイロット・試作</span><button data-action="close" aria-label="閉じる">閉じる ×</button></div>' + content; dialog.showModal(); }
   function close() { dialog.close(); pending = null; if (returnFocus && returnFocus.isConnected) returnFocus.focus(); else { var display = document.querySelector('[data-action="display"]'); if (display && display.getClientRects && display.getClientRects().length) display.focus(); else document.getElementById('main').focus(); } }
   function toast(text, id) { var node = document.createElement('div'); node.className = 'toast'; node.innerHTML = '<span>' + e(text) + '</span>' + (id ? '<button data-action="undo" data-id="' + id + '">元に戻す</button>' : '') + '<button data-action="dismiss" aria-label="通知を閉じる">×</button>'; document.getElementById('toasts').appendChild(node); }
+  function toastUndo(text, callback) {
+    var id = 'screen-undo-' + (++undoSerial);
+    undoCallbacks[id] = callback;
+    toast(text, id);
+  }
   function preferences() {
     var themes = { auto: '自動', light: 'ライト', dark: 'ダーク' };
     return '<div class="segmented" role="group" aria-label="表示モード">' + C.modes.map(function (m) { return '<button data-action="mode" data-id="' + m + '" aria-pressed="' + (C.mode === m) + '">' + m + '</button>'; }).join('') + '</div><button class="icon-button" data-action="theme" aria-label="テーマ：' + themes[C.theme] + '。押すと切り替え" title="テーマ：' + themes[C.theme] + '"><span aria-hidden="true">' + ({ auto: '◐', light: '☀', dark: '☾' })[C.theme] + '</span></button><button class="icon-button" data-action="shortcuts" aria-label="キーボード操作">?</button>';
@@ -19,7 +25,10 @@
     document.title = D.title(route) + ' | 理想のオートパイロット（構想）';
     document.getElementById('sidebar').innerHTML = '<p class="brand">理想のオートパイロット</p><p class="muted">作業の順に、ひとつずつ。</p><nav aria-label="作業順">' + nav() + '</nav>';
     document.getElementById('header').innerHTML = '<div class="header-row"><h1 title="' + e(D.title(route)) + '">' + e(D.title(route)) + '</h1><button class="concept" data-action="legend">構想(未実装)</button><div class="header-actions"><button class="icon-button" data-action="search" aria-label="検索" aria-expanded="false" aria-controls="search-form"><svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><circle cx="10" cy="10" r="6" fill="none" stroke="currentColor" stroke-width="2"/><path d="m15 15 6 6" stroke="currentColor" stroke-width="2"/></svg></button><button class="icon-button bell" data-action="notifications" aria-expanded="false" aria-controls="notifications" aria-label="通知を開く：' + D.counts().total + '件（例）"><svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path d="M5 17h14l-2-3V9a5 5 0 0 0-10 0v5l-2 3m5 3h4" fill="none" stroke="currentColor" stroke-width="2"/></svg><span class="notification-count" aria-hidden="true">' + D.counts().total + '</span></button><button class="support-button" data-action="support" aria-label="この画面で困った"><span class="phone-label" aria-hidden="true">ⓘ 困った</span><span class="desktop-label">この画面で困った</span></button><div class="desktop-preferences">' + preferences() + '</div><button class="display-button" data-action="display" aria-haspopup="dialog">表示</button></div></div><form id="search-form" class="search-popover" hidden><label class="sr-only" for="search">検索</label><input id="search" type="search" placeholder="画面内を検索" aria-describedby="search-note"><button>検索</button><p id="search-note">試作のため検索は動きません</p></form><div id="notifications" class="notifications" hidden></div>';
-    document.getElementById('main').innerHTML = route === 'today' ? T.render() : window.IdealStub.render(route);
+    var main = document.getElementById('main');
+    main.onclick = main.oninput = main.onchange = main.onsubmit = main.onkeydown = null;
+    document.getElementById('main').innerHTML = window.IdealScreens[route].render();
+    if (window.IdealScreens[route].bind) window.IdealScreens[route].bind(document.getElementById('main'));
     document.getElementById('tabs').innerHTML = [['today', '今日'], ['sourcing', '仕入れ'], ['create', '出品'], ['orders', '売れたあと']].map(function (r) { return '<a href="#/' + r[0] + '"' + (route === r[0] ? ' aria-current="page"' : '') + '>' + r[1] + '</a>'; }).join('') + '<button data-action="drawer">もっと</button>';
     if (action) { var candidates = document.querySelectorAll('[data-action]'); Array.prototype.some.call(candidates, function (n) { if (n.dataset.action === action && n.dataset.id === actionId) { n.focus(); return true; } return false; }); }
   }
@@ -48,7 +57,7 @@
     }
     if (action === 'support') { supportScreen = D.title(route); open('<h2>この画面で困った</h2><h3>既知の不具合（例）</h3><ul><li>確認中：画像と説明の表示差</li><li>修正中：過去の取り込みが欠ける</li><li>修正済み：通知の件数ずれ（過去分も修復済み）</li></ul><form id="support-form"><p>対象画面：' + e(supportScreen) + '</p><label>困った内容<textarea name="report" required></textarea></label><button>この画面を運営に送る（試作）</button></form>'); }
     if (action === 'dismiss') b.parentElement.remove();
-    if (action === 'undo') { D.undo(id); b.parentElement.remove(); render(); document.getElementById('main').focus(); toast('元に戻しました'); }
+    if (action === 'undo') { if (undoCallbacks[id]) { undoCallbacks[id](); delete undoCallbacks[id]; } else D.undo(id); b.parentElement.remove(); render(); document.getElementById('main').focus(); toast('元に戻しました'); }
     if (action === 'automation') { var a = D.automations.find(function (v) { return v.id === id; }); a.on = !a.on; render(); toast(a.name + (a.on ? 'を再開しました（試作）' : 'を停止しました（試作）。' + a.impact)); }
     if (action === 'fix') finish(id, '修正しました');
     if (action === 'message') { var draft = document.querySelector('[data-draft="' + id + '"]').value.trim(); if (!draft) { toast('返信文を入力してください'); return; } confirm(item, '返信を送信しました', '送信する返信文：' + draft, function () { item.draft = draft; }); }
@@ -77,6 +86,6 @@
   });
   dialog.addEventListener('cancel', function (event) { event.preventDefault(); close(); });
   window.addEventListener('hashchange', jump);
-  window.IdealShell = { render: render, nav: nav };
+  window.IdealShell = { render: render, nav: nav, toast: toast, toastUndo: toastUndo };
   render();
 })();
